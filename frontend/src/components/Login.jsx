@@ -72,10 +72,8 @@ function Login({ onLogin }) {
 
       // Handle Student role (needs backend)
       if (isRegister) {
-        console.log('Attempting registration to:', `${API}/api/students/register`);
-        
-        // Register new student
-        const registerRes = await axios.post(`${API}/api/students/register`, {
+       console.log('Attempting registration to:', `${API_URL}/api/students/register`);
+       const registerRes = await axios.post(`${API_URL}/api/students/register`, {
           name: form.name,
           email: form.email,
           password: form.password
@@ -86,11 +84,11 @@ function Login({ onLogin }) {
         setIsRegister(false);
         setForm({ name: '', email: '', password: '' });
       } else {
-        console.log('Attempting login to:', `${API}/api/students/login`);
+        console.log('Attempting login to:', `${API_URL}/api/students/login`);
         console.log('With data:', { email: form.email });
         
         // Login existing student
-        const loginRes = await axios.post(`${API}/api/students/login`, {
+        const loginRes = await axios.post(`${API_URL}/api/students/login`, {
           email: form.email,
           password: form.password
         });
