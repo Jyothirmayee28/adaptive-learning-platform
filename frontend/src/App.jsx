@@ -19,13 +19,13 @@ function App() {
     return <Login onLogin={handleLogin} />;
   }
 
-  // Route based on user role
-  if (user.role === 'admin') {
-    return <AdminDashboard user={user} onLogout={handleLogout} />;
-  }
-
+  // Route based on role
   if (user.role === 'teacher') {
     return <TeacherDashboard user={user} onLogout={handleLogout} />;
+  }
+
+  if (user.role === 'admin') {
+    return <AdminDashboard user={user} onLogout={handleLogout} />;
   }
 
   // Default to student dashboard

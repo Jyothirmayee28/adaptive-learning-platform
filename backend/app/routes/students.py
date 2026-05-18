@@ -1,13 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from pydantic import BaseModel
 from app.database import get_db
 from app.models.student import Student
-from pydantic import BaseModel
-from passlib.context import CryptContext
+import bcrypt
 
 router = APIRouter()
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
 class StudentCreate(BaseModel):
     name: str
     email: str
@@ -17,22 +15,37 @@ class StudentLogin(BaseModel):
     email: str
     password: str
 
-@router.post("/register")
-def register_student(student: StudentCreate, db: Session = Depends(get_db)):
-    existing = db.query(Student).filter(Student.email == student.email).first()
+
+class RegisterRequest(BaseModel):
+    name: str
+    email: str
+    password: str
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+@router.post("/api/students/register")
+def register_student(student_data: StudentCreate, db: Session = Depends(get_db)):
+    existing = db.query(Student).filter(Student.email == student_data.email).first()
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
     
-    hashed_password = pwd_context.hash(student.password)
+    hashed_password = bcrypt.hashpw(
+        student_data.password.encode('utf-8'), 
+        bcrypt.gensalt()
+    )
     
     new_student = Student(
-        name=student.name,
-        email=student.email,
-        password=hashed_password,
+        name=student_data.name,
+        email=student_data.email,
+        password_hash=hashed_password.decode('utf-8'),
+        current_topic="Python Basics",
+        difficulty_level=1.0,
+        completed_topics=[],
         knowledge_state={},
         performance_history=[],
-        difficulty_level=1.0,
-        current_topic="Introduction to Learning"
+        average_score=0.0
     )
     
     db.add(new_student)
@@ -42,29 +55,36 @@ def register_student(student: StudentCreate, db: Session = Depends(get_db)):
     return {
         "message": "Student registered successfully",
         "student_id": new_student.id,
-        "name": new_student.name
+        "starting_topic": "Python Basics"
     }
 
-@router.post("/login")
+
+@router.post("/api/students/login")
 def login_student(credentials: StudentLogin, db: Session = Depends(get_db)):
     student = db.query(Student).filter(Student.email == credentials.email).first()
-    if not student:
-        raise HTTPException(status_code=404, detail="Student not found")
     
-    if not pwd_context.verify(credentials.password, student.password):
-        raise HTTPException(status_code=400, detail="Incorrect password")
+    if not student:
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    
+    # Verify password
+    if not bcrypt.checkpw(
+        credentials.password.encode('utf-8'),
+        student.password_hash.encode('utf-8')
+    ):
+        raise HTTPException(status_code=401, detail="Invalid credentials")
     
     return {
-        "message": "Login successful",
         "student_id": student.id,
         "name": student.name,
+        "email": student.email,
         "current_topic": student.current_topic,
         "difficulty_level": student.difficulty_level
     }
 
-@router.get("/{student_id}")
+@router.get("/api/students/{student_id}")
 def get_student(student_id: int, db: Session = Depends(get_db)):
     student = db.query(Student).filter(Student.id == student_id).first()
+    
     if not student:
         raise HTTPException(status_code=404, detail="Student not found")
     
@@ -74,20 +94,45 @@ def get_student(student_id: int, db: Session = Depends(get_db)):
         "email": student.email,
         "current_topic": student.current_topic,
         "difficulty_level": student.difficulty_level,
-        "knowledge_state": student.knowledge_state,
-        "performance_history": student.performance_history
+        "completed_topics": student.completed_topics,
+        "average_score": student.average_score
     }
 
-@router.get("/")
-def get_all_students(db: Session = Depends(get_db)):
+@router.post("/api/students/{student_id}/reset-progress")
+def reset_student_progress(student_id: int, db: Session = Depends(get_db)):
+    """Reset student to start of curriculum"""
+    student = db.query(Student).filter(Student.id == student_id).first()
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+    
+    student.current_topic = "Python Basics"
+    student.difficulty_level = 1.0
+    student.completed_topics = []
+    student.knowledge_state = {}
+    student.performance_history = []
+    student.average_score = 0.0
+    
+    db.commit()
+    
+    return {
+        "success": True,
+        "message": "Progress reset successfully",
+        "current_topic": "Python Basics"
+    }
+
+@router.get("/api/students/")
+def list_students(db: Session = Depends(get_db)):
     students = db.query(Student).all()
+    
     return [
         {
             "id": s.id,
             "name": s.name,
             "email": s.email,
             "current_topic": s.current_topic,
-            "difficulty_level": s.difficulty_level
+            "difficulty_level": s.difficulty_level,
+            "completed_topics": s.completed_topics,
+            "average_score": s.average_score
         }
         for s in students
     ]

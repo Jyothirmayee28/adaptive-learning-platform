@@ -1,20 +1,17 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, JSON
-from sqlalchemy.sql import func
+from sqlalchemy import Column, Integer, String, Float, JSON
 from app.database import Base
 
 class Student(Base):
     __tablename__ = "students"
-
+    __table_args__ = {'extend_existing': True}
+    
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False)
-    email = Column(String, unique=True, index=True, nullable=False)
-    password = Column(String, nullable=False)
-    current_topic = Column(String, default="Introduction")
-    difficulty_level = Column(Float, default=1.0)
-    knowledge_state = Column(JSON, default={})
-    performance_history = Column(JSON, default=[])
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
-
-    def __repr__(self):
-        return f"<Student {self.name}>"
+    email = Column(String, unique=True, nullable=False, index=True)
+    password_hash = Column(String, nullable=False)  # CHANGED FROM password TO password_hash
+    current_topic = Column(String, default="Python Basics")
+    difficulty_level = Column(Float, default=2.5)
+    completed_topics = Column(JSON, default=list)
+    knowledge_state = Column(JSON, default=dict)
+    performance_history = Column(JSON, default=list)
+    average_score = Column(Float, default=0.0)

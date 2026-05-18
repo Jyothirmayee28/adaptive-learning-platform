@@ -1,18 +1,17 @@
-from fastapi import FastAPI, Request
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
-from app.database import engine, Base
-from app.routes import students, learning_path
-import traceback
+from dotenv import load_dotenv
+load_dotenv()
 
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from app.routes import students, learning_path, teacher, content_library  # Add content_library
+from app.database import engine, Base
+
+# Create tables
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI(
-    title="Adaptive Learning Path Engine",
-    description="AI-powered personalized learning system",
-    version="1.0.0"
-)
+app = FastAPI(title="LearnAI Platform")
 
+# CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -21,32 +20,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-@app.exception_handler(Exception)
-async def global_exception_handler(request: Request, exc: Exception):
-    error_detail = traceback.format_exc()
-    print("FULL ERROR:", error_detail)
-    return JSONResponse(status_code=500, content={"detail": error_detail})
-
-app.include_router(
-    students.router,
-    prefix="/api/students",
-    tags=["Students"]
-)
-
-app.include_router(
-    learning_path.router,
-    prefix="/api/learning",
-    tags=["Learning Path"]
-)
+# Include routers
+app.include_router(students.router)
+app.include_router(learning_path.router)
+app.include_router(teacher.router)
+app.include_router(content_library.router)  # Add this line
 
 @app.get("/")
 def root():
-    return {
-        "message": "Adaptive Learning Path Engine is running",
-        "status": "active",
-        "version": "1.0.0"
-    }
-
-@app.get("/health")
-def health_check():
-    return {"status": "healthy"}
+    return {"message": "LearnAI Platform API - Running"}

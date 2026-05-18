@@ -1,298 +1,296 @@
 import os
-import requests
 import json
 from dotenv import load_dotenv
+from groq import Groq
+from app.curriculum import get_next_recommended_topic, get_topic_info
 
-# Load environment variables
 load_dotenv()
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
+client = Groq(api_key=GROQ_API_KEY)
+
 
 def call_groq_api(prompt: str, max_tokens: int = 500, temperature: float = 0.7):
-    """
-    Call Groq API with error handling
-    """
+    """Call GROQ API with error handling"""
     if not GROQ_API_KEY:
         raise ValueError("GROQ_API_KEY not found in environment variables")
-    
-    headers = {
-        "Authorization": f"Bearer {GROQ_API_KEY}",
-        "Content-Type": "application/json"
-    }
-    
-    payload = {
-        "model": "llama-3.3-70b-versatile",
-        "messages": [
-            {
-                "role": "system",
-                "content": "You are a helpful, friendly AI tutor. Provide clear, concise, and encouraging explanations. Keep answers to 2-3 sentences unless more detail is specifically requested."
-            },
-            {
-                "role": "user",
-                "content": prompt
-            }
-        ],
-        "max_tokens": max_tokens,
-        "temperature": temperature
-    }
-    
+
     try:
-        response = requests.post(GROQ_API_URL, headers=headers, json=payload, timeout=30)
-        response.raise_for_status()
-        
-        result = response.json()
-        return result["choices"][0]["message"]["content"].strip()
-        
-    except requests.exceptions.Timeout:
-        print("Groq API timeout")
-        raise Exception("AI service timeout - please try again")
-    except requests.exceptions.RequestException as e:
-        print(f"Groq API request error: {e}")
+        response = client.chat.completions.create(
+            messages=[
+                {"role": "system", "content": "You are a helpful, friendly AI tutor."},
+                {"role": "user", "content": prompt}
+            ],
+            model="llama-3.3-70b-versatile",
+            max_tokens=max_tokens,
+            temperature=temperature
+        )
+        return response.choices[0].message.content.strip()
+    except Exception as e:
+        print(f"GROQ API error: {e}")
         raise Exception(f"AI service error: {str(e)}")
-    except (KeyError, IndexError) as e:
-        print(f"Groq API response parsing error: {e}")
-        raise Exception("Invalid AI response format")
 
 
 def get_next_topic_recommendation(student):
     """
-    Generate next topic recommendation based on student performance
+    Generate next topic recommendation based on curriculum and student performance
     """
-    prompt = f"""You are an adaptive learning AI. Based on this student's data, recommend the next topic.
-
-Current topic: {student.current_topic}
-Difficulty level: {student.difficulty_level}/5
-Knowledge state: {student.knowledge_state}
-
-Provide a JSON response with:
-- next_topic: string (name of next topic)
-- difficulty: float (1-5 scale)
-- reason: string (why this topic)
-- why_this_now: string (explain timing)
-- estimated_time: string (e.g., "30 minutes")
-- confidence: float (0-1, how confident in this recommendation)
-
-Return ONLY valid JSON, no other text."""
-
+    from app.curriculum import get_next_recommended_topic as get_next_rec, get_topic_info
+    
+    completed_topics = student.completed_topics or []
+    current_difficulty = student.difficulty_level
+    
+    # Get next topic from curriculum
+    recommendation = get_next_rec(completed_topics, current_difficulty)
+    
+    next_topic = recommendation["next_topic"]
+    topic_info = get_topic_info(next_topic)
+    
+    # Generate AI explanation for WHY this topic now
     try:
-        response = call_groq_api(prompt, max_tokens=400, temperature=0.7)
+        prompt = f"""You are an adaptive learning AI. Explain why the student should learn "{next_topic}" now.
+
+Student has completed: {len(completed_topics)} topics
+Current difficulty level: {current_difficulty}/5
+Next topic difficulty: {recommendation['difficulty']}/5
+
+Write a motivating 2-3 sentence explanation about why this topic is important and timely.
+Be encouraging and specific."""
+
+        response = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.7,
+            max_tokens=200
+        )
         
-        # Try to parse JSON from response
-        # Sometimes AI adds markdown formatting, so strip it
-        response_clean = response.strip()
-        if response_clean.startswith("```json"):
-            response_clean = response_clean[7:]
-        if response_clean.startswith("```"):
-            response_clean = response_clean[3:]
-        if response_clean.endswith("```"):
-            response_clean = response_clean[:-3]
-        response_clean = response_clean.strip()
+        why_this_now = response.choices[0].message.content.strip()
         
-        recommendation = json.loads(response_clean)
-        
-        # Validate required fields
-        required_fields = ["next_topic", "difficulty", "reason", "why_this_now", "estimated_time", "confidence"]
-        for field in required_fields:
-            if field not in recommendation:
-                raise ValueError(f"Missing required field: {field}")
-        
-        return recommendation
-        
-    except json.JSONDecodeError as e:
-        print(f"JSON parsing error: {e}")
-        print(f"AI Response was: {response}")
-        
-        # Fallback recommendation
-        return {
-            "next_topic": "Learning Strategies",
-            "difficulty": min(student.difficulty_level + 0.3, 5.0),
-            "reason": "This builds on your current knowledge",
-            "why_this_now": "Your performance indicates readiness for this topic",
-            "estimated_time": "30 minutes",
-            "confidence": 0.7
-        }
     except Exception as e:
-        print(f"Recommendation error: {e}")
-        
-        # Fallback recommendation
-        return {
-            "next_topic": "Next Steps in Learning",
-            "difficulty": student.difficulty_level,
-            "reason": "Continuing your learning journey",
-            "why_this_now": "Natural progression from current topic",
-            "estimated_time": "25 minutes",
-            "confidence": 0.65
-        }
+        print(f"AI explanation error: {e}")
+        why_this_now = f"You've completed the prerequisites and are ready to learn {next_topic}!"
+    
+    return {
+        "next_topic": next_topic,
+        "difficulty": recommendation["difficulty"],
+        "reason": topic_info.get("description", "Important Python concept"),
+        "why_this_now": why_this_now,
+        "estimated_time": recommendation["estimated_time"],
+        "confidence": 0.95,
+        "category": recommendation.get("category", "Python"),
+        "prerequisites": topic_info.get("prerequisites", [])
+    }
 
 
 def get_topic_explanation(student):
-    """
-    Generate explanation for why student is learning current topic
-    """
-    prompt = f"""You are an encouraging AI tutor. Explain why the student is learning their current topic.
-
-Student is learning: {student.current_topic}
-Their difficulty level: {student.difficulty_level}/5
-Their knowledge state: {student.knowledge_state}
-
-Write a motivating 2-3 sentence explanation that:
-1. Explains the importance of this topic
-2. Connects it to their learning goals
-3. Encourages them to keep going
-
-Be warm, supportive, and specific to this topic."""
-
+    """Generate explanation for current topic"""
+    prompt = f"""Explain why learning {student.current_topic} is important. 2-3 sentences, encouraging."""
     try:
-        explanation = call_groq_api(prompt, max_tokens=200, temperature=0.8)
-        return explanation
-        
-    except Exception as e:
-        print(f"Explanation error: {e}")
-        
-        # Fallback explanation
-        return f"You're learning {student.current_topic} because it's a fundamental building block for your educational journey. This topic will help you develop critical thinking skills and prepare you for more advanced concepts ahead. Keep up the great work!"
+        return call_groq_api(prompt, max_tokens=200, temperature=0.8)
+    except:
+        return f"You're learning {student.current_topic} because it's fundamental for your journey!"
 
 
 def analyze_performance(student, assessment_data):
-    """
-    Analyze student performance and provide insights
-    """
-    prompt = f"""You are an educational AI analyzing student performance.
-
-Student: {student.name}
-Current topic: {student.current_topic}
-Current difficulty: {student.difficulty_level}/5
-Recent score: {assessment_data.get('score')}%
-Time spent: {assessment_data.get('time_spent')} minutes
-Errors: {assessment_data.get('errors', [])}
-
-Provide a JSON response with:
-- mastery_level: float (0-1, how well they know this topic)
-- weak_areas: list of strings (what needs improvement)
-- strong_areas: list of strings (what they're good at)
-- should_revisit: boolean (should they review this topic?)
-- recommended_difficulty_change: float (-1 to +1, how much to adjust difficulty)
-
-Return ONLY valid JSON."""
-
-    try:
-        response = call_groq_api(prompt, max_tokens=300, temperature=0.5)
-        
-        # Clean and parse JSON
-        response_clean = response.strip()
-        if response_clean.startswith("```json"):
-            response_clean = response_clean[7:]
-        if response_clean.startswith("```"):
-            response_clean = response_clean[3:]
-        if response_clean.endswith("```"):
-            response_clean = response_clean[:-3]
-        response_clean = response_clean.strip()
-        
-        analysis = json.loads(response_clean)
-        return analysis
-        
-    except Exception as e:
-        print(f"Performance analysis error: {e}")
-        
-        # Fallback analysis based on score
-        score = assessment_data.get('score', 0)
-        
-        if score >= 90:
-            mastery = 0.9
-            difficulty_change = 0.3
-            should_revisit = False
-        elif score >= 75:
-            mastery = 0.75
-            difficulty_change = 0.1
-            should_revisit = False
-        elif score >= 60:
-            mastery = 0.6
-            difficulty_change = 0.0
-            should_revisit = False
-        else:
-            mastery = 0.4
-            difficulty_change = -0.2
-            should_revisit = True
-        
-        return {
-            "mastery_level": mastery,
-            "weak_areas": ["Review fundamental concepts"],
-            "strong_areas": ["Active participation"],
-            "should_revisit": should_revisit,
-            "recommended_difficulty_change": difficulty_change
-        }
+    """Analyze student performance"""
+    score = assessment_data.get('score', 0)
+    
+    if score >= 90:
+        return {"mastery_level": 0.9, "weak_areas": [], "strong_areas": ["Excellent understanding"], "should_revisit": False, "recommended_difficulty_change": 0.3}
+    elif score >= 75:
+        return {"mastery_level": 0.75, "weak_areas": ["Minor gaps"], "strong_areas": ["Good grasp"], "should_revisit": False, "recommended_difficulty_change": 0.1}
+    elif score >= 60:
+        return {"mastery_level": 0.6, "weak_areas": ["Some concepts"], "strong_areas": ["Basic understanding"], "should_revisit": False, "recommended_difficulty_change": 0.0}
+    else:
+        return {"mastery_level": 0.4, "weak_areas": ["Fundamentals"], "strong_areas": ["Trying hard"], "should_revisit": True, "recommended_difficulty_change": -0.2}
 
 
 def chat_response(topic: str, student_name: str, message: str, chat_history: list = None):
-    """
-    Generate AI tutor response for student questions
-    """
-    # Build conversation context
-    system_prompt = f"""You are a friendly, patient AI tutor helping {student_name} understand {topic}.
-
-Guidelines:
-- Answer questions clearly and concisely
-- Use simple language appropriate for students
-- Be encouraging and supportive
-- If unsure, admit it and guide them to resources
-- Keep responses to 2-4 sentences unless more detail is needed
-- Use examples when helpful
-"""
-
-    # Build message history
-    messages = [
-        {"role": "system", "content": system_prompt}
-    ]
+    """Generate AI tutor chat response"""
+    system_prompt = f"You are a friendly AI tutor helping {student_name} with {topic}."
+    messages = [{"role": "system", "content": system_prompt}]
     
-    # Add chat history if provided (last 5 messages for context)
     if chat_history:
-        recent_history = chat_history[-10:]  # Last 10 messages (5 exchanges)
-        for msg in recent_history:
+        for msg in chat_history[-10:]:
             if msg.get("role") in ["user", "assistant"]:
-                messages.append({
-                    "role": msg["role"],
-                    "content": msg["content"]
-                })
+                messages.append({"role": msg["role"], "content": msg["content"]})
     
-    # Add current message
-    messages.append({
-        "role": "user",
-        "content": message
-    })
-    
-    # Make API call with conversation context
-    headers = {
-        "Authorization": f"Bearer {GROQ_API_KEY}",
-        "Content-Type": "application/json"
-    }
-    
-    payload = {
-        "model": "llama-3.3-70b-versatile",
-        "messages": messages,
-        "max_tokens": 400,
-        "temperature": 0.7
-    }
+    messages.append({"role": "user", "content": message})
     
     try:
-        response = requests.post(GROQ_API_URL, headers=headers, json=payload, timeout=30)
-        response.raise_for_status()
+        response = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=messages,
+            max_tokens=400,
+            temperature=0.7
+        )
+        return response.choices[0].message.content.strip()
+    except:
+        return f"Great question about {topic}! Let me help you understand this better."
+
+
+def generate_quiz_questions(topic: str, difficulty_level: float, attempt_number: int = 1):
+    """Generate 5 quiz questions"""
+    if difficulty_level <= 2:
+        difficulty_desc = "beginner level"
+    elif difficulty_level <= 3.5:
+        difficulty_desc = "intermediate level"
+    else:
+        difficulty_desc = "advanced level"
+    
+    prompt = f"""Generate 5 MCQ questions about "{topic}" - {difficulty_desc}.
+
+Return JSON:
+{{
+  "questions": [
+    {{"id": 1, "question": "...", "options": {{"A": "...", "B": "...", "C": "...", "D": "..."}}, "correct_answer": "A", "explanation": "..."}}
+  ]
+}}"""
+
+    try:
+        response = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.9,
+            max_tokens=2500
+        )
         
-        result = response.json()
-        ai_response = result["choices"][0]["message"]["content"].strip()
-        return ai_response
+        response_text = response.choices[0].message.content.strip()
+        response_text = response_text.replace("```json", "").replace("```", "").strip()
+        quiz_data = json.loads(response_text)
         
+        return {
+            "success": True,
+            "topic": topic,
+            "difficulty_level": difficulty_level,
+            "attempt_number": attempt_number,
+            "total_questions": len(quiz_data["questions"]),
+            "questions": quiz_data["questions"]
+        }
     except Exception as e:
-        print(f"Chat response error: {e}")
+        print(f"Quiz generation error: {e}")
+        return {"success": False, "error": str(e), "questions": []}
+
+
+def get_topic_content(topic: str):
+    """Get topic content overview"""
+    try:
+        prompt = f"""Overview of {topic} in Python.
+
+Return JSON:
+{{"description": "2-3 sentences", "key_concepts": ["c1", "c2", "c3"], "why_matters": "importance", "prerequisites": "what to know"}}"""
+
+        response = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.7,
+            max_tokens=1500
+        )
         
-        # Fallback responses based on keywords
-        message_lower = message.lower()
+        content = response.choices[0].message.content.strip()
+        content = content.replace("```json", "").replace("```", "").strip()
+        content_data = json.loads(content)
         
-        if "what" in message_lower and "is" in message_lower:
-            return f"Great question about {topic}! This concept is fundamental to your learning. It helps you understand how different ideas connect and build upon each other. Would you like me to explain any specific part in more detail?"
-        elif "how" in message_lower:
-            return f"To understand this aspect of {topic}, let's break it down step by step. The key is to start with the basics and gradually build up your knowledge. Practice is essential - try applying what you learn to real examples!"
-        elif "why" in message_lower:
-            return f"You're learning this because it forms an important foundation for more advanced topics. Understanding {topic} will help you solve problems more effectively and think critically about complex situations."
-        else:
-            return f"That's an interesting question about {topic}! This topic has many important applications. Keep asking questions - that's how you learn best. Is there a specific aspect you'd like me to clarify?"
+        return {"success": True, "topic": topic, **content_data}
+    except Exception as e:
+        print(f"Topic content error: {e}")
+        return {
+            "success": False,
+            "description": f"Learn {topic}",
+            "key_concepts": ["Core concepts", "Applications", "Best practices"],
+            "why_matters": "Essential for Python",
+            "prerequisites": "Basic Python"
+        }
+
+
+def generate_practice_questions(topic: str, count: int = 6):
+    """Generate practice questions"""
+    all_questions = []
+    question_id = 1
+    
+    # MCQ Questions
+    mcq_prompt = f"""Generate 2 MCQ questions about {topic}.
+Return JSON array: [{{"question": "...", "options": {{"A": "...", "B": "...", "C": "...", "D": "..."}}, "correct_answer": "A", "explanation": "..."}}]"""
+    
+    try:
+        mcq_response = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[{"role": "user", "content": mcq_prompt}],
+            temperature=0.9,
+            max_tokens=2000
+        )
+        
+        mcq_content = mcq_response.choices[0].message.content.strip()
+        mcq_content = mcq_content.replace("```json", "").replace("```", "").strip()
+        mcq_questions = json.loads(mcq_content)
+        
+        for q in mcq_questions:
+            all_questions.append({
+                "id": question_id,
+                "type": "mcq",
+                "question": q["question"],
+                "options": q["options"],
+                "correct_answer": q["correct_answer"],
+                "explanation": q.get("explanation", "")
+            })
+            question_id += 1
+    except Exception as e:
+        print(f"MCQ error: {e}")
+    
+    # Coding Questions
+    coding_prompt = f"""Generate 2 Python coding problems about {topic}.
+Return JSON array: [{{"question": "...", "hint": "...", "explanation": "..."}}]"""
+    
+    try:
+        coding_response = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[{"role": "user", "content": coding_prompt}],
+            temperature=0.9,
+            max_tokens=2000
+        )
+        
+        coding_content = coding_response.choices[0].message.content.strip()
+        coding_content = coding_content.replace("```json", "").replace("```", "").strip()
+        coding_questions = json.loads(coding_content)
+        
+        for q in coding_questions:
+            all_questions.append({
+                "id": question_id,
+                "type": "coding",
+                "question": q["question"],
+                "hint": q.get("hint", "Think step by step"),
+                "explanation": q.get("explanation", "")
+            })
+            question_id += 1
+    except Exception as e:
+        print(f"Coding error: {e}")
+    
+    # Theory Questions
+    theory_prompt = f"""Generate 2 theory questions about {topic}.
+Return JSON array: [{{"question": "...", "explanation": "..."}}]"""
+    
+    try:
+        theory_response = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[{"role": "user", "content": theory_prompt}],
+            temperature=0.9,
+            max_tokens=2000
+        )
+        
+        theory_content = theory_response.choices[0].message.content.strip()
+        theory_content = theory_content.replace("```json", "").replace("```", "").strip()
+        theory_questions = json.loads(theory_content)
+        
+        for q in theory_questions:
+            all_questions.append({
+                "id": question_id,
+                "type": "theory",
+                "question": q["question"],
+                "explanation": q.get("explanation", "")
+            })
+            question_id += 1
+    except Exception as e:
+        print(f"Theory error: {e}")
+    
+    print(f"Generated {len(all_questions)} practice questions")
+    return all_questions
