@@ -6,6 +6,7 @@ from app.models.student import Student
 import bcrypt
 
 router = APIRouter()
+
 class StudentCreate(BaseModel):
     name: str
     email: str
@@ -14,7 +15,6 @@ class StudentCreate(BaseModel):
 class StudentLogin(BaseModel):
     email: str
     password: str
-
 
 class RegisterRequest(BaseModel):
     name: str
@@ -39,7 +39,8 @@ def register_student(student_data: StudentCreate, db: Session = Depends(get_db))
     new_student = Student(
         name=student_data.name,
         email=student_data.email,
-        password_hash=hashed_password.decode('utf-8'),
+        password=hashed_password.decode('utf-8'),  # Changed from password_hash to password
+        role="student",  # Set role as student
         current_topic="Python Basics",
         difficulty_level=1.0,
         completed_topics=[],
@@ -58,7 +59,6 @@ def register_student(student_data: StudentCreate, db: Session = Depends(get_db))
         "starting_topic": "Python Basics"
     }
 
-
 @router.post("/api/students/login")
 def login_student(credentials: StudentLogin, db: Session = Depends(get_db)):
     student = db.query(Student).filter(Student.email == credentials.email).first()
@@ -69,7 +69,7 @@ def login_student(credentials: StudentLogin, db: Session = Depends(get_db)):
     # Verify password
     if not bcrypt.checkpw(
         credentials.password.encode('utf-8'),
-        student.password_hash.encode('utf-8')
+        student.password.encode('utf-8')  # Changed from password_hash to password
     ):
         raise HTTPException(status_code=401, detail="Invalid credentials")
     
@@ -77,6 +77,7 @@ def login_student(credentials: StudentLogin, db: Session = Depends(get_db)):
         "student_id": student.id,
         "name": student.name,
         "email": student.email,
+        "role": student.role,  # Return role
         "current_topic": student.current_topic,
         "difficulty_level": student.difficulty_level
     }
@@ -92,6 +93,7 @@ def get_student(student_id: int, db: Session = Depends(get_db)):
         "id": student.id,
         "name": student.name,
         "email": student.email,
+        "role": student.role,  # Return role
         "current_topic": student.current_topic,
         "difficulty_level": student.difficulty_level,
         "completed_topics": student.completed_topics,
@@ -129,6 +131,7 @@ def list_students(db: Session = Depends(get_db)):
             "id": s.id,
             "name": s.name,
             "email": s.email,
+            "role": s.role,  # Return role
             "current_topic": s.current_topic,
             "difficulty_level": s.difficulty_level,
             "completed_topics": s.completed_topics,

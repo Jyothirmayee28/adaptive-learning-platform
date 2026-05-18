@@ -1,12 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
-const API = 'http://127.0.0.1:8000';
+const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
 
 function AdminDashboard({ user, onLogout }) {
   const [darkMode, setDarkMode] = useState(false);
   const [students, setStudents] = useState([]);
-  const [analytics, setAnalytics] = useState(null);
+  const [analytics, setAnalytics] = useState({
+    total_students: 0,
+    avg_completion: 0,
+    avg_score: 0,
+    total_hours: 0,
+    recent_activity: [],
+    top_performers: []
+  });
   const [loading, setLoading] = useState(true);
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
@@ -22,12 +29,20 @@ function AdminDashboard({ user, onLogout }) {
       
       const studentsRes = await axios.get(`${API}/api/admin/students`);
       console.log('Students data:', studentsRes.data);
-      
+      console.log('Students COUNT:', studentsRes.data.length);
+
       const analyticsRes = await axios.get(`${API}/api/admin/analytics`);
       console.log('Analytics data:', analyticsRes.data);
-      
+      console.log('FULL ANALYTICS:', JSON.stringify(analyticsRes.data, null, 2));
+
       setStudents(studentsRes.data);
       setAnalytics(analyticsRes.data);
+
+      console.log('State after setting:', {
+      students: studentsRes.data,
+      analytics: analyticsRes.data
+    });
+    
     } catch (err) {
       console.error('Error loading admin data:', err);
       setAnalytics({ 
@@ -35,8 +50,8 @@ function AdminDashboard({ user, onLogout }) {
         avg_completion: 0, 
         avg_score: 0, 
         total_hours: 0,
-        recent_activities: [],
-        top_students: []
+        recent_activity: [],
+        top_performers: []
       });
       setStudents([]);
     } finally {
@@ -48,7 +63,7 @@ function AdminDashboard({ user, onLogout }) {
 
   if (loading) {
     return (
-      <div style={{...styles.container, ...theme.background}}>
+      <div style={{...styles.app, ...theme.background}}>
         <div style={styles.loading}>Loading admin dashboard...</div>
       </div>
     );
@@ -95,28 +110,28 @@ function AdminDashboard({ user, onLogout }) {
           <StatCard
             icon="👥"
             label="Total Students"
-            value={analytics?.total_students || 0}
+            value={analytics.total_students}
             trend="+12%"
             theme={theme}
           />
           <StatCard
             icon="✅"
             label="Avg Completion"
-            value={`${analytics?.avg_completion || 0}%`}
+            value={`${analytics.avg_completion}%`}
             trend="+5%"
             theme={theme}
           />
           <StatCard
             icon="⭐"
             label="Avg Score"
-            value={`${analytics?.avg_score || 0}%`}
+            value={`${analytics.avg_score}%`}
             trend="+8%"
             theme={theme}
           />
           <StatCard
             icon="⏱️"
             label="Total Hours"
-            value={analytics?.total_hours || 0}
+            value={analytics.total_hours}
             trend="+15%"
             theme={theme}
           />
@@ -164,7 +179,7 @@ function AdminDashboard({ user, onLogout }) {
         )}
 
         {activeTab === 'performance' && (
-          <PerformanceTab students={students} theme={theme} />
+          <PerformanceTab students={students} analytics={analytics} theme={theme} />
         )}
 
         {activeTab === 'settings' && (
@@ -185,33 +200,47 @@ function OverviewTab({ analytics, theme }) {
         <div style={{...styles.card, ...theme.card}}>
           <h3 style={{...styles.cardTitle, ...theme.text}}>Recent Activity</h3>
           <div style={styles.activityList}>
-            {analytics?.recent_activities?.map((activity, i) => (
-              <div key={i} style={{...styles.activityItem, ...theme.activityItem}}>
-                <span style={styles.activityIcon}>{activity.icon}</span>
-                <div style={styles.activityContent}>
-                  <p style={{...styles.activityText, ...theme.text}}>{activity.text}</p>
-                  <span style={{...styles.activityTime, ...theme.textMuted}}>{activity.time}</span>
+            {analytics.recent_activity && analytics.recent_activity.length > 0 ? (
+              analytics.recent_activity.map((activity, i) => (
+                <div key={i} style={{...styles.activityItem, ...theme.activityItem}}>
+                  <span style={styles.activityIcon}>✅</span>
+                  <div style={styles.activityContent}>
+                    <p style={{...styles.activityText, ...theme.text}}>{activity.student_name}</p>
+                    <p style={{...styles.activityAction, ...theme.textMuted}}>{activity.action}</p>
+                    <span style={{...styles.activityTime, ...theme.textMuted}}>{activity.timestamp}</span>
+                  </div>
+                  <div style={styles.activityScore}>{activity.score}%</div>
                 </div>
+              ))
+            ) : (
+              <div style={{...styles.emptyState, ...theme.textMuted}}>
+                No recent activity yet. Students will appear here after taking quizzes.
               </div>
-            ))}
+            )}
           </div>
         </div>
 
         <div style={{...styles.card, ...theme.card}}>
           <h3 style={{...styles.cardTitle, ...theme.text}}>Top Performers</h3>
           <div style={styles.leaderboard}>
-            {analytics?.top_students?.map((student, i) => (
-              <div key={i} style={{...styles.leaderboardItem, ...theme.leaderboardItem}}>
-                <div style={styles.rank}>{i + 1}</div>
-                <div style={styles.studentInfo}>
-                  <p style={{...styles.studentName, ...theme.text}}>{student.name}</p>
-                  <p style={{...styles.studentMeta, ...theme.textMuted}}>
-                    {student.completed_topics} topics • {student.avg_score}%
-                  </p>
+            {analytics.top_performers && analytics.top_performers.length > 0 ? (
+              analytics.top_performers.map((performer, i) => (
+                <div key={i} style={{...styles.leaderboardItem, ...theme.leaderboardItem}}>
+                  <div style={styles.rank}>{i + 1}</div>
+                  <div style={styles.studentInfo}>
+                    <p style={{...styles.studentName, ...theme.text}}>{performer.name}</p>
+                    <p style={{...styles.studentMeta, ...theme.textMuted}}>
+                      {performer.completed_topics} topics • {performer.avg_score}%
+                    </p>
+                  </div>
+                  <div style={styles.trophy}>🏆</div>
                 </div>
-                <div style={styles.trophy}>🏆</div>
+              ))
+            ) : (
+              <div style={{...styles.emptyState, ...theme.textMuted}}>
+                No top performers yet. Data will appear as students complete topics.
               </div>
-            ))}
+            )}
           </div>
         </div>
       </div>
@@ -254,65 +283,71 @@ function StudentsTab({ students, theme, onSelectStudent }) {
 
       {/* Students Table */}
       <div style={{...styles.tableCard, ...theme.card}}>
-        <table style={styles.table}>
-          <thead>
-            <tr style={{...styles.tableHeader, ...theme.tableHeader}}>
-              <th style={styles.th}>Student</th>
-              <th style={styles.th}>Email</th>
-              <th style={styles.th}>Progress</th>
-              <th style={styles.th}>Avg Score</th>
-              <th style={styles.th}>Status</th>
-              <th style={styles.th}>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredStudents.map((student, i) => (
-              <tr key={i} style={{...styles.tableRow, ...theme.tableRow}}>
-                <td style={{...styles.td, ...theme.text}}>
-                  <div style={styles.studentCell}>
-                    <div style={styles.avatar}>{student.name.charAt(0)}</div>
-                    {student.name}
-                  </div>
-                </td>
-                <td style={{...styles.td, ...theme.textMuted}}>{student.email}</td>
-                <td style={{...styles.td, ...theme.text}}>
-                  <div style={styles.progressBar}>
-                    <div 
-                      style={{
-                        ...styles.progressFill, 
-                        width: `${(student.completed_topics / 55) * 100}%`
-                      }}
-                    ></div>
-                  </div>
-                  <span style={{...styles.progressText, ...theme.textMuted}}>
-                    {student.completed_topics}/55
-                  </span>
-                </td>
-                <td style={{...styles.td, ...theme.text}}>{student.avg_score}%</td>
-                <td style={{...styles.td}}>
-                  <span style={student.status === 'active' ? styles.statusActive : styles.statusInactive}>
-                    {student.status}
-                  </span>
-                </td>
-                <td style={{...styles.td}}>
-                  <button 
-                    style={{...styles.actionBtn, ...theme.actionBtn}}
-                    onClick={() => onSelectStudent(student)}
-                  >
-                    View
-                  </button>
-                </td>
+        {filteredStudents.length > 0 ? (
+          <table style={styles.table}>
+            <thead>
+              <tr style={{...styles.tableHeader, ...theme.tableHeader}}>
+                <th style={styles.th}>Student</th>
+                <th style={styles.th}>Email</th>
+                <th style={styles.th}>Progress</th>
+                <th style={styles.th}>Avg Score</th>
+                <th style={styles.th}>Status</th>
+                <th style={styles.th}>Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {filteredStudents.map((student, i) => (
+                <tr key={i} style={{...styles.tableRow, ...theme.tableRow}}>
+                  <td style={{...styles.td, ...theme.text}}>
+                    <div style={styles.studentCell}>
+                      <div style={styles.avatar}>{student.name.charAt(0)}</div>
+                      {student.name}
+                    </div>
+                  </td>
+                  <td style={{...styles.td, ...theme.textMuted}}>{student.email}</td>
+                  <td style={{...styles.td, ...theme.text}}>
+                    <div style={styles.progressBar}>
+                      <div 
+                        style={{
+                          ...styles.progressFill, 
+                          width: `${(student.completed_topics / 14) * 100}%`
+                        }}
+                      ></div>
+                    </div>
+                    <span style={{...styles.progressText, ...theme.textMuted}}>
+                      {student.completed_topics}/14
+                    </span>
+                  </td>
+                  <td style={{...styles.td, ...theme.text}}>{student.avg_score}%</td>
+                  <td style={{...styles.td}}>
+                    <span style={student.status === 'active' ? styles.statusActive : styles.statusInactive}>
+                      {student.status}
+                    </span>
+                  </td>
+                  <td style={{...styles.td}}>
+                    <button 
+                      style={{...styles.actionBtn, ...theme.actionBtn}}
+                      onClick={() => onSelectStudent(student)}
+                    >
+                      View
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <div style={{...styles.emptyState, ...theme.textMuted, padding: '60px'}}>
+            No students found
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
 // Performance Tab Component
-function PerformanceTab({ students, theme }) {
+function PerformanceTab({ students, analytics, theme }) {
   return (
     <div style={styles.tabContent}>
       <div style={{...styles.card, ...theme.card}}>
@@ -324,23 +359,23 @@ function PerformanceTab({ students, theme }) {
         <div style={styles.metricsGrid}>
           <div style={{...styles.metricCard, ...theme.metricCard}}>
             <p style={{...styles.metricLabel, ...theme.textMuted}}>Average Completion Rate</p>
-            <p style={{...styles.metricValue, ...theme.text}}>67%</p>
+            <p style={{...styles.metricValue, ...theme.text}}>{analytics.avg_completion}%</p>
             <div style={styles.metricBar}>
-              <div style={{...styles.metricFill, width: '67%'}}></div>
+              <div style={{...styles.metricFill, width: `${analytics.avg_completion}%`}}></div>
             </div>
           </div>
 
           <div style={{...styles.metricCard, ...theme.metricCard}}>
             <p style={{...styles.metricLabel, ...theme.textMuted}}>Average Quiz Score</p>
-            <p style={{...styles.metricValue, ...theme.text}}>82%</p>
+            <p style={{...styles.metricValue, ...theme.text}}>{analytics.avg_score}%</p>
             <div style={styles.metricBar}>
-              <div style={{...styles.metricFill, width: '82%'}}></div>
+              <div style={{...styles.metricFill, width: `${analytics.avg_score}%`}}></div>
             </div>
           </div>
 
           <div style={{...styles.metricCard, ...theme.metricCard}}>
-            <p style={{...styles.metricLabel, ...theme.textMuted}}>Student Engagement</p>
-            <p style={{...styles.metricValue, ...theme.text}}>74%</p>
+            <p style={{...styles.metricLabel, ...theme.textMuted}}>Total Study Hours</p>
+            <p style={{...styles.metricValue, ...theme.text}}>{analytics.total_hours}h</p>
             <div style={styles.metricBar}>
               <div style={{...styles.metricFill, width: '74%'}}></div>
             </div>
@@ -361,7 +396,6 @@ function SettingsTab({ theme }) {
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    // Load settings from localStorage
     const savedSettings = localStorage.getItem('adminSettings');
     if (savedSettings) {
       setSettings(JSON.parse(savedSettings));
@@ -833,11 +867,20 @@ const styles = {
   },
   activityText: {
     fontSize: '14px',
-    fontWeight: '500',
+    fontWeight: '600',
+    margin: '0 0 2px 0'
+  },
+  activityAction: {
+    fontSize: '13px',
     margin: '0 0 4px 0'
   },
   activityTime: {
     fontSize: '12px'
+  },
+  activityScore: {
+    fontSize: '18px',
+    fontWeight: '700',
+    color: '#10B981'
   },
   
   leaderboard: {
@@ -878,6 +921,12 @@ const styles = {
   },
   trophy: {
     fontSize: '24px'
+  },
+  
+  emptyState: {
+    textAlign: 'center',
+    padding: '40px 20px',
+    fontSize: '14px'
   },
   
   toolbar: {
@@ -1076,16 +1125,8 @@ const styles = {
     right: 0,
     bottom: 0,
     transition: '0.3s',
-    borderRadius: '26px',
-    '&:before': {
-      content: '""',
-      position: 'absolute',
-      height: '22px',
-      width: '22px', 
-      boxShadow: '0 2px 8px rgba(0,0,0,0.08)'
-    }
+    borderRadius: '26px'
   },
-
   saveButton: {
     marginTop: '32px',
     padding: '14px 28px',
@@ -1098,4 +1139,4 @@ const styles = {
   }
 };
 
-export default AdminDashboard;   
+export default AdminDashboard;

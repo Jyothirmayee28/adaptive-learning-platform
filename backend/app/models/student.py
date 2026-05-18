@@ -8,9 +8,10 @@ class Student(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False)
     email = Column(String, unique=True, nullable=False, index=True)
-    password_hash = Column(String, nullable=False)  # CHANGED FROM password TO password_hash
+    password = Column(String, nullable=False)  # Changed back to password
+    role = Column(String, default="student")  # ADDED role field
     current_topic = Column(String, default="Python Basics")
-    difficulty_level = Column(Float, default=2.5)
+    difficulty_level = Column(Float, default=1.0)
     completed_topics = Column(JSON, default=list)
     knowledge_state = Column(JSON, default=dict)
     performance_history = Column(JSON, default=list)
