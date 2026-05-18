@@ -17,3 +17,4 @@ frontend/.env
 .DS_Store
 *.pyc
 __pycache__/
+.vercel
