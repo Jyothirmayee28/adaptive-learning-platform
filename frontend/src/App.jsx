@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import LandingPage from './components/LandingPage';
 import Login from './components/Login';
 import StudentDashboard from './components/StudentDashboard';
 import TeacherDashboard from './components/TeacherDashboard';
@@ -15,21 +17,64 @@ function App() {
     setUser(null);
   };
 
-  if (!user) {
-    return <Login onLogin={handleLogin} />;
-  }
+  return (
+    <Router>
+      <Routes>
+        {/* Public Routes */}
+        <Route path="/" element={<LandingPage />} />
+        <Route 
+          path="/login" 
+          element={
+            user ? (
+              // If already logged in, redirect to appropriate dashboard
+              user.role === 'teacher' ? <Navigate to="/teacher" /> :
+              user.role === 'admin' ? <Navigate to="/admin" /> :
+              <Navigate to="/student" />
+            ) : (
+              <Login onLogin={handleLogin} />
+            )
+          } 
+        />
 
-  // Route based on role
-  if (user.role === 'teacher') {
-    return <TeacherDashboard user={user} onLogout={handleLogout} />;
-  }
+        {/* Protected Routes - Redirect to login if not authenticated */}
+        <Route 
+          path="/student" 
+          element={
+            user && user.role === 'student' ? (
+              <StudentDashboard user={user} onLogout={handleLogout} />
+            ) : (
+              <Navigate to="/login" />
+            )
+          } 
+        />
 
-  if (user.role === 'admin') {
-    return <AdminDashboard user={user} onLogout={handleLogout} />;
-  }
+        <Route 
+          path="/teacher" 
+          element={
+            user && user.role === 'teacher' ? (
+              <TeacherDashboard user={user} onLogout={handleLogout} />
+            ) : (
+              <Navigate to="/login" />
+            )
+          } 
+        />
 
-  // Default to student dashboard
-  return <StudentDashboard user={user} onLogout={handleLogout} />;
+        <Route 
+          path="/admin" 
+          element={
+            user && user.role === 'admin' ? (
+              <AdminDashboard user={user} onLogout={handleLogout} />
+            ) : (
+              <Navigate to="/login" />
+            )
+          } 
+        />
+
+        {/* Catch all - redirect to landing page */}
+        <Route path="*" element={<Navigate to="/" />} />
+      </Routes>
+    </Router>
+  );
 }
 
 export default App;
