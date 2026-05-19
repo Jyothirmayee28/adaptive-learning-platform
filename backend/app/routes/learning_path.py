@@ -62,7 +62,7 @@ async def get_recommendation(student_id: int, db: Session = Depends(get_db)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/api/learning/explanation/{student_id}")
+@router.get("/explanation/{student_id}")
 def get_explanation(student_id: int, db: Session = Depends(get_db)):
     student = db.query(Student).filter(Student.id == student_id).first()
     if not student:
@@ -90,7 +90,7 @@ async def get_progress_endpoint(student_id: int, db: Session = Depends(get_db)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("/api/learning/submit-assessment")
+@router.post("/submit-assessment")
 def submit_assessment(result: AssessmentResult, db: Session = Depends(get_db)):
     student = db.query(Student).filter(Student.id == result.student_id).first()
     if not student:
@@ -143,7 +143,7 @@ def submit_assessment(result: AssessmentResult, db: Session = Depends(get_db)):
         "new_difficulty": student.difficulty_level
     }
 
-@router.post("/api/learning/chat")
+@router.post("/chat")
 def chat(request: ChatRequest, db: Session = Depends(get_db)):
     student = db.query(Student).filter(Student.id == request.student_id).first()
     if not student:
@@ -162,7 +162,7 @@ def chat(request: ChatRequest, db: Session = Depends(get_db)):
 # AI QUIZ ENDPOINTS
 # ============================================
 
-@router.post("/api/learning/generate-quiz")
+@router.post("/generate-quiz")
 async def generate_quiz_endpoint(
     topic: str,
     student_id: int,
@@ -235,7 +235,7 @@ async def generate_quiz_endpoint(
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
     
-@router.post("/api/learning/submit-quiz")
+@router.post("/submit-quiz")
 async def submit_quiz_endpoint(
     submission: QuizSubmission,
     db: Session = Depends(get_db)
@@ -397,7 +397,7 @@ async def submit_quiz_endpoint(
 # TOPIC CONTENT & PRACTICE ENDPOINTS
 # ============================================
 
-@router.get("/api/learning/topic-content")
+@router.get("/topic-content")
 async def get_topic_content_endpoint(topic: str):
     """
     Get AI-generated content for a topic including overview, key concepts, etc.
@@ -412,7 +412,7 @@ async def get_topic_content_endpoint(topic: str):
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/api/learning/practice-questions")
+@router.get("/practice-questions")
 async def get_practice_questions_endpoint(topic: str, count: int = 6):
     """
     Get AI-generated practice questions (MCQ, coding, theory)
@@ -432,9 +432,8 @@ async def get_practice_questions_endpoint(topic: str, count: int = 6):
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
-    from app.curriculum import get_curriculum, get_learning_path
 
-@router.get("/api/learning/curriculum")
+@router.get("/curriculum")
 def get_full_curriculum():
     """Get the complete curriculum structure"""
     from app.curriculum import get_curriculum
@@ -445,7 +444,7 @@ def get_full_curriculum():
         "total_topics": len(curriculum)
     }
 
-@router.get("/api/learning/learning-path/{student_id}")
+@router.get("/learning-path/{student_id}")
 def get_student_learning_path(student_id: int, db: Session = Depends(get_db)):
     """Get personalized learning path for a student"""
     from app.curriculum import get_learning_path
@@ -464,26 +463,3 @@ def get_student_learning_path(student_id: int, db: Session = Depends(get_db)):
         "current_topic": student.current_topic,
         "learning_path": path
     }
-
-
-@router.get("/api/learning/progress/{student_id}")
-async def get_progress_endpoint(student_id: int, db: Session = Depends(get_db)):
-    """Get student's learning progress"""
-    try:
-        student = db.query(Student).filter(Student.id == student_id).first()
-        if not student:
-            raise HTTPException(status_code=404, detail="Student not found")
-        
-        return {
-            "success": True,
-            "student_id": student.id,
-            "current_topic": student.current_topic,
-            "difficulty_level": student.difficulty_level,
-            "completed_topics": student.completed_topics or [],
-            "knowledge_state": student.knowledge_state or {},
-            "performance_history": student.performance_history or [],
-            "average_score": student.average_score or 0
-        }
-    except Exception as e:
-        print(f"Error fetching progress: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
