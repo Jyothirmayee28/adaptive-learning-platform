@@ -3,7 +3,6 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from app.database import get_db
 from app.models.student import Student
-from app.utils.auth import create_access_token
 import bcrypt
 
 router = APIRouter()
@@ -27,9 +26,6 @@ class LoginRequest(BaseModel):
     email: str
     password: str
 
-
-from app.utils.auth import create_access_token  # ADD THIS IMPORT AT TOP
-
 @router.post("/login")
 async def login(credentials: dict, db: Session = Depends(get_db)):
     email = credentials.get("email")
@@ -48,26 +44,15 @@ async def login(credentials: dict, db: Session = Depends(get_db)):
     if not bcrypt.checkpw(password.encode('utf-8'), student.password.encode('utf-8')):
         return {"success": False, "message": "Invalid credentials"}
     
-    # Create JWT token
-    token = create_access_token({
-        "user_id": student.id,
-        "email": student.email,
-        "name": student.name,
-        "role": student.role
-    })
-    
+    # Return user data directly (OLD WORKING FORMAT - NO JWT)
     return {
-        "success": True,
-        "user": {
-            "id": student.id,
-            "name": student.name,
-            "email": student.email,
-            "role": student.role,
-            "student_id": student.id,
-            "current_topic": student.current_topic,
-            "difficulty_level": student.difficulty_level
-        },
-        "token": token
+        "id": student.id,
+        "name": student.name,
+        "email": student.email,
+        "role": student.role,
+        "student_id": student.id,
+        "current_topic": student.current_topic if student.current_topic else "Python Basics",
+        "difficulty_level": student.difficulty_level if student.difficulty_level else 1
     }
 
 @router.post("/api/students/register")
@@ -84,8 +69,8 @@ def register_student(student_data: StudentCreate, db: Session = Depends(get_db))
     new_student = Student(
         name=student_data.name,
         email=student_data.email,
-        password=hashed_password.decode('utf-8'),  # Changed from password_hash to password
-        role="student",  # Set role as student
+        password=hashed_password.decode('utf-8'),
+        role="student",
         current_topic="Python Basics",
         difficulty_level=1.0,
         completed_topics=[],
@@ -114,7 +99,7 @@ def login_student(credentials: StudentLogin, db: Session = Depends(get_db)):
     # Verify password
     if not bcrypt.checkpw(
         credentials.password.encode('utf-8'),
-        student.password.encode('utf-8')  # Changed from password_hash to password
+        student.password.encode('utf-8')
     ):
         raise HTTPException(status_code=401, detail="Invalid credentials")
     
@@ -122,7 +107,7 @@ def login_student(credentials: StudentLogin, db: Session = Depends(get_db)):
         "student_id": student.id,
         "name": student.name,
         "email": student.email,
-        "role": student.role,  # Return role
+        "role": student.role,
         "current_topic": student.current_topic,
         "difficulty_level": student.difficulty_level
     }
@@ -138,7 +123,7 @@ def get_student(student_id: int, db: Session = Depends(get_db)):
         "id": student.id,
         "name": student.name,
         "email": student.email,
-        "role": student.role,  # Return role
+        "role": student.role,
         "current_topic": student.current_topic,
         "difficulty_level": student.difficulty_level,
         "completed_topics": student.completed_topics,
@@ -176,7 +161,7 @@ def list_students(db: Session = Depends(get_db)):
             "id": s.id,
             "name": s.name,
             "email": s.email,
-            "role": s.role,  # Return role
+            "role": s.role,
             "current_topic": s.current_topic,
             "difficulty_level": s.difficulty_level,
             "completed_topics": s.completed_topics,
