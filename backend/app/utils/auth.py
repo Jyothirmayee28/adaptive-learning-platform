@@ -3,15 +3,13 @@ from jose import JWTError, jwt
 from fastapi import HTTPException, status, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
-# Secret key - CHANGE THIS IN PRODUCTION!
 SECRET_KEY = "your-super-secret-key-change-in-production-12345"
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 1440  # 24 hours
+ACCESS_TOKEN_EXPIRE_MINUTES = 1440
 
 security = HTTPBearer()
 
 def create_access_token(data: dict):
-    """Create JWT token"""
     to_encode = data.copy()
     expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode.update({"exp": expire})
@@ -19,7 +17,6 @@ def create_access_token(data: dict):
     return encoded_jwt
 
 def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
-    """Verify JWT token"""
     try:
         token = credentials.credentials
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
@@ -31,7 +28,6 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
         )
 
 def verify_admin(credentials: HTTPAuthorizationCredentials = Depends(security)):
-    """Verify user is admin"""
     payload = verify_token(credentials)
     
     if payload.get("role") != "admin":

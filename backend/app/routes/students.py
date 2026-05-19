@@ -28,6 +28,8 @@ class LoginRequest(BaseModel):
     password: str
 
 
+from app.utils.auth import create_access_token  # ADD THIS IMPORT AT TOP
+
 @router.post("/login")
 async def login(credentials: dict, db: Session = Depends(get_db)):
     email = credentials.get("email")
@@ -60,9 +62,12 @@ async def login(credentials: dict, db: Session = Depends(get_db)):
             "id": student.id,
             "name": student.name,
             "email": student.email,
-            "role": student.role
+            "role": student.role,
+            "student_id": student.id,
+            "current_topic": student.current_topic,
+            "difficulty_level": student.difficulty_level
         },
-        "token": token  # RETURN TOKEN
+        "token": token
     }
 
 @router.post("/api/students/register")
