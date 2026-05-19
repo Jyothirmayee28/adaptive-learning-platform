@@ -9,7 +9,6 @@ function Sidebar({ activeView, setActiveView, user, onLogout }) {
     { id: 'progress', icon: BarChart3, label: 'Progress Analytics' },
     { id: 'achievements', icon: Award, label: 'Achievements' },
     { id: 'spaced', icon: Clock, label: 'Spaced Repetition' },
-    { id: 'leaderboard', icon: Trophy, label: 'Leaderboard' },
     { id: 'chat', icon: MessageSquare, label: 'AI Study Buddy' },
     { id: 'curriculum', icon: BookOpen, label: 'Full Curriculum' },
     { id: 'content-library', icon: BookOpen, label: 'Content Library' },
