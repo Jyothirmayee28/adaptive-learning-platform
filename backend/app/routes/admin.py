@@ -2,11 +2,13 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.student import Student
+from app.utils.auth import verify_admin
+from fastapi import Depends
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
-@router.get("/students")
-def get_all_students(db: Session = Depends(get_db)):
+@router.get("/students", dependencies=[Depends(verify_admin)])
+async def get_all_students(db: Session = Depends(get_db)):
     """Get all students with their progress"""
     try:
         students = db.query(Student).filter(Student.role == "student").all()
@@ -34,8 +36,8 @@ def get_all_students(db: Session = Depends(get_db)):
         print(f"Error in get_all_students: {e}")
         return []
 
-@router.get("/analytics")
-def get_admin_analytics(db: Session = Depends(get_db)):
+@router.get("/analytics", dependencies=[Depends(verify_admin)])
+async def get_analytics(db: Session = Depends(get_db)):
     """Get platform-wide analytics for admin dashboard"""
     try:
         students = db.query(Student).filter(Student.role == "student").all()

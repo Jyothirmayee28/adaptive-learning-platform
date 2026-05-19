@@ -23,41 +23,52 @@ function AdminDashboard({ user, onLogout }) {
   }, []);
 
   const loadAdminData = async () => {
-    setLoading(true);
-    try {
-      console.log('Fetching admin data...');
-      
-      const studentsRes = await axios.get(`${API}/api/admin/students`);
-      console.log('Students data:', studentsRes.data);
-      console.log('Students COUNT:', studentsRes.data.length);
-
-      const analyticsRes = await axios.get(`${API}/api/admin/analytics`);
-      console.log('Analytics data:', analyticsRes.data);
-      console.log('FULL ANALYTICS:', JSON.stringify(analyticsRes.data, null, 2));
-
-      setStudents(studentsRes.data);
-      setAnalytics(analyticsRes.data);
-
-      console.log('State after setting:', {
-      students: studentsRes.data,
-      analytics: analyticsRes.data
-    });
+  setLoading(true);
+  try {
+    console.log('Fetching admin data...');
     
-    } catch (err) {
-      console.error('Error loading admin data:', err);
-      setAnalytics({ 
-        total_students: 0, 
-        avg_completion: 0, 
-        avg_score: 0, 
-        total_hours: 0,
-        recent_activity: [],
-        top_performers: []
-      });
-      setStudents([]);
-    } finally {
-      setLoading(false);
+    // Get token from localStorage
+    const token = localStorage.getItem('auth_token');
+    
+    // Create config with Authorization header
+    const config = {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    };
+    
+    // Send token with requests
+    const studentsRes = await axios.get(`${API}/api/admin/students`, config);
+    console.log('Students data:', studentsRes.data);
+
+    const analyticsRes = await axios.get(`${API}/api/admin/analytics`, config);
+    console.log('Analytics data:', analyticsRes.data);
+
+    setStudents(studentsRes.data);
+    setAnalytics(analyticsRes.data);
+    
+  } catch (err) {
+    console.error('Error loading admin data:', err);
+    
+    // If unauthorized, redirect to login
+    if (err.response?.status === 401 || err.response?.status === 403) {
+      localStorage.removeItem('auth_token');
+      window.location.href = '/login';
     }
-  };
+    
+    setAnalytics({ 
+      total_students: 0, 
+      avg_completion: 0, 
+      avg_score: 0, 
+      total_hours: 0,
+      recent_activity: [],
+      top_performers: []
+    });
+    setStudents([]);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const theme = darkMode ? darkTheme : lightTheme;
 

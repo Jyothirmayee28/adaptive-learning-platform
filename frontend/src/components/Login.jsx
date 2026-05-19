@@ -20,60 +20,26 @@ function Login({ onLogin }) {
     setLoading(true);
     setError('');
 
-    // Validation
-    if (!form.email || !form.password) {
-      setError('Email and password are required');
-      setLoading(false);
-      return;
-    }
-
-    if (isRegister && !form.name) {
-      setError('Name is required for registration');
-      setLoading(false);
-      return;
-    }
-
-    // Email validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(form.email)) {
-      setError('Please enter a valid email address');
-      setLoading(false);
-      return;
-    }
-
-    // Password validation (at least 6 characters)
-    if (isRegister && form.password.length < 6) {
-      setError('Password must be at least 6 characters long');
-      setLoading(false);
-      return;
-    }
-    
     try {
-      // Handle Teacher and Admin roles (bypass backend)
+      // Handle Teacher role (bypass backend - demo only)
       if (role === 'teacher') {
-        onLogin({ 
-          name: form.name || 'Teacher Demo', 
+        const user = { 
+          name: form.email.split('@')[0] || 'Teacher Demo', 
           email: form.email, 
           role: 'teacher',
           student_id: 0
-        });
+        };
+        const token = 'demo-teacher-token';
+        localStorage.setItem('auth_token', token);
+        onLogin(user);
         return;
       }
 
-      if (role === 'admin') {
-        onLogin({ 
-          name: form.name || 'Admin Demo', 
-          email: form.email, 
-          role: 'admin',
-          student_id: 0
-        });
-        return;
-      }
-
-      // Handle Student role (needs backend)
-      if (isRegister) {
-       console.log('Attempting registration to:', `${API_URL}/api/students/register`);
-       const registerRes = await axios.post(`${API_URL}/api/students/register`, {
+      // Handle Student and Admin roles (authenticate through backend)
+      if (isRegister && role === 'student') {
+        // Registration
+        console.log('Attempting registration to:', `${API_URL}/api/students/register`);
+        const registerRes = await axios.post(`${API_URL}/api/students/register`, {
           name: form.name,
           email: form.email,
           password: form.password
@@ -84,32 +50,76 @@ function Login({ onLogin }) {
         setIsRegister(false);
         setForm({ name: '', email: '', password: '' });
       } else {
+        // Login (both student and admin go through backend)
         console.log('Attempting login to:', `${API_URL}/api/students/login`);
-        console.log('With data:', { email: form.email });
+        console.log('With role:', role);
         
-        // Login existing student
         const loginRes = await axios.post(`${API_URL}/api/students/login`, {
           email: form.email,
           password: form.password
         });
         
-        console.log('Login successful:', loginRes.data);
-        const userData = loginRes.data;
-        userData.role = 'student';
-        onLogin(userData);
+        console.log('Login response:', loginRes.data);
+        console.log('Response has success:', loginRes.data.success);
+        console.log('Response has user:', loginRes.data.user);
+        console.log('Response has token:', loginRes.data.token);
+        
+        // Handle two response formats:
+        // New format: { success: true, user: {...}, token: "..." }
+        // Old format: { id, name, email, role, ... } (direct user object)
+        
+        let user, token;
+        
+        if (loginRes.data.success) {
+          // New format with success field
+          user = loginRes.data.user;
+          token = loginRes.data.token;
+        } else if (loginRes.data.id && loginRes.data.email) {
+          // Old format - response IS the user object
+          user = {
+            id: loginRes.data.id,
+            name: loginRes.data.name,
+            email: loginRes.data.email,
+            role: loginRes.data.role,
+            student_id: loginRes.data.student_id
+          };
+          token = 'legacy-token-' + Date.now();
+        } else {
+          setError('Login failed - unexpected response format');
+          return;
+        }
+        
+        console.log('Parsed user:', user);
+        console.log('Parsed token:', token);
+        
+        // For admin role selection, verify user is actually admin
+        if (role === 'admin' && user.role !== 'admin') {
+          setError('Access denied. This account does not have admin privileges. Please contact an administrator.');
+          return;
+        }
+        
+        // For student role selection, verify user is actually student
+        if (role === 'student' && user.role !== 'student') {
+          setError('This account is not a student account. Please select the correct role.');
+          return;
+        }
+        
+        // Store token in localStorage
+        localStorage.setItem('auth_token', token);
+        
+        // Pass user to parent
+        onLogin(user);
       }
     } catch (err) {
       console.error('Full error:', err);
       console.error('Error response:', err.response);
-      console.error('Error message:', err.message);
-      console.error('Error code:', err.code);
       
       if (err.response?.status === 401) {
         setError('Invalid email or password');
       } else if (err.response?.status === 400) {
         setError(err.response.data.detail || 'Email already registered');
       } else if (err.code === 'ERR_NETWORK' || err.message === 'Network Error') {
-        setError('Cannot connect to server. Make sure backend is running at http://127.0.0.1:8000');
+        setError('Cannot connect to server. Make sure backend is running.');
       } else {
         setError(`Error: ${err.response?.data?.detail || err.message || 'Something went wrong'}`);
       }
@@ -345,7 +355,7 @@ function Login({ onLogin }) {
             {loading ? (
               '⏳ Please wait...'
             ) : (
-              role === 'admin' ? '👑 Enter as Admin' :
+              role === 'admin' ? '👑 Login as Admin' :
               role === 'teacher' ? '👨‍🏫 Enter as Teacher' : 
               (isRegister ? '✨ Create Account' : '🚀 Login')
             )}
@@ -364,13 +374,13 @@ function Login({ onLogin }) {
         {/* Help Text */}
         {role === 'admin' && !isRegister && (
           <p style={styles.hint}>
-            💡 Admin: Enter any credentials to continue
+            💡 Admin: Login with your admin account credentials
           </p>
         )}
 
         {role === 'teacher' && !isRegister && (
           <p style={styles.hint}>
-            💡 Teacher: Enter any credentials to continue
+            💡 Teacher: Enter any credentials to continue (demo mode)
           </p>
         )}
       </div>

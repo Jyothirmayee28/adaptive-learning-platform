@@ -3,9 +3,11 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from app.database import get_db
 from app.models.student import Student
+from app.utils.auth import create_access_token
 import bcrypt
 
 router = APIRouter()
+
 
 class StudentCreate(BaseModel):
     name: str
@@ -24,6 +26,44 @@ class RegisterRequest(BaseModel):
 class LoginRequest(BaseModel):
     email: str
     password: str
+
+
+@router.post("/login")
+async def login(credentials: dict, db: Session = Depends(get_db)):
+    email = credentials.get("email")
+    password = credentials.get("password")
+    
+    if not email or not password:
+        return {"success": False, "message": "Email and password required"}
+    
+    # Find user
+    student = db.query(Student).filter(Student.email == email).first()
+    
+    if not student:
+        return {"success": False, "message": "Invalid credentials"}
+    
+    # Verify password
+    if not bcrypt.checkpw(password.encode('utf-8'), student.password.encode('utf-8')):
+        return {"success": False, "message": "Invalid credentials"}
+    
+    # Create JWT token
+    token = create_access_token({
+        "user_id": student.id,
+        "email": student.email,
+        "name": student.name,
+        "role": student.role
+    })
+    
+    return {
+        "success": True,
+        "user": {
+            "id": student.id,
+            "name": student.name,
+            "email": student.email,
+            "role": student.role
+        },
+        "token": token  # RETURN TOKEN
+    }
 
 @router.post("/api/students/register")
 def register_student(student_data: StudentCreate, db: Session = Depends(get_db)):
