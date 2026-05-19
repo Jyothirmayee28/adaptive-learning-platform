@@ -78,10 +78,10 @@ function Login({ onLogin }) {
           // New format with success field
           user = loginRes.data.user;
           token = loginRes.data.token;
-        } else if (loginRes.data.id && loginRes.data.email) {
+        } else if ((loginRes.data.id || loginRes.data.student_id) && loginRes.data.email) {
           // Old format - response IS the user object
           user = {
-            id: loginRes.data.id,
+            id: loginRes.data.id || loginRes.data.student_id,
             name: loginRes.data.name,
             email: loginRes.data.email,
             role: loginRes.data.role,
