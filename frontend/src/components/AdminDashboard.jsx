@@ -6,6 +6,7 @@ const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
 function AdminDashboard({ user, onLogout }) {
   const [darkMode, setDarkMode] = useState(false);
   const [students, setStudents] = useState([]);
+  const [selectedStudent, setSelectedStudent] = useState(null);
   const [analytics, setAnalytics] = useState({
     total_students: 0,
     avg_completion: 0,
@@ -15,7 +16,6 @@ function AdminDashboard({ user, onLogout }) {
     top_performers: []
   });
   const [loading, setLoading] = useState(true);
-  const [selectedStudent, setSelectedStudent] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
 
   useEffect(() => {
@@ -187,6 +187,123 @@ function AdminDashboard({ user, onLogout }) {
         )}
       </div>
 
+      {/* Student Detail Modal */}
+      {selectedStudent && (
+        <div 
+          style={styles.modalOverlay} 
+          onClick={() => setSelectedStudent(null)}
+        >
+          <div 
+            style={{...styles.modalContent, ...theme.card}} 
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button 
+              onClick={() => setSelectedStudent(null)}
+              style={styles.modalClose}
+            >
+              ✕
+            </button>
+            
+            <div style={styles.modalHeader}>
+              <div style={styles.modalAvatar}>
+                {selectedStudent.name.charAt(0)}
+              </div>
+              <div>
+                <h2 style={{...styles.modalTitle, ...theme.text}}>
+                  {selectedStudent.name}
+                </h2>
+                <p style={{...styles.modalEmail, ...theme.textMuted}}>
+                  {selectedStudent.email}
+                </p>
+              </div>
+            </div>
+
+            <div style={styles.modalBody}>
+              <div style={styles.modalSection}>
+                <h3 style={{...styles.modalSectionTitle, ...theme.text}}>
+                  Progress Overview
+                </h3>
+                <div style={styles.modalGrid}>
+                  <div style={{...styles.modalStat, ...theme.metricCard}}>
+                    <p style={{...styles.modalStatLabel, ...theme.textMuted}}>
+                      Current Topic
+                    </p>
+                    <p style={{...styles.modalStatValue, ...theme.text}}>
+                      {selectedStudent.current_topic || 'Not started'}
+                    </p>
+                  </div>
+                  <div style={{...styles.modalStat, ...theme.metricCard}}>
+                    <p style={{...styles.modalStatLabel, ...theme.textMuted}}>
+                      Completed Topics
+                    </p>
+                    <p style={{...styles.modalStatValue, ...theme.text}}>
+                      {selectedStudent.completed_topics?.length || 0}
+                    </p>
+                  </div>
+                  <div style={{...styles.modalStat, ...theme.metricCard}}>
+                    <p style={{...styles.modalStatLabel, ...theme.textMuted}}>
+                      Average Score
+                    </p>
+                    <p style={{...styles.modalStatValue, ...theme.text}}>
+                      {selectedStudent.avg_score}%
+                    </p>
+                  </div>
+                  <div style={{...styles.modalStat, ...theme.metricCard}}>
+                    <p style={{...styles.modalStatLabel, ...theme.textMuted}}>
+                      Difficulty Level
+                    </p>
+                    <p style={{...styles.modalStatValue, ...theme.text}}>
+                      {selectedStudent.difficulty_level || 1}/5
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {selectedStudent.completed_topics && selectedStudent.completed_topics.length > 0 && (
+                <div style={styles.modalSection}>
+                  <h3 style={{...styles.modalSectionTitle, ...theme.text}}>
+                    Completed Topics
+                  </h3>
+                  <div style={styles.topicTags}>
+                    {selectedStudent.completed_topics.map((topic, idx) => (
+                      <span 
+                        key={idx} 
+                        style={{...styles.topicTag, ...theme.metricCard}}
+                      >
+                        ✓ {topic}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {selectedStudent.performance_history && selectedStudent.performance_history.length > 0 && (
+                <div style={styles.modalSection}>
+                  <h3 style={{...styles.modalSectionTitle, ...theme.text}}>
+                    Recent Performance
+                  </h3>
+                  <div style={styles.performanceList}>
+                    {selectedStudent.performance_history.slice(-5).reverse().map((perf, idx) => (
+                      <div key={idx} style={{...styles.performanceItem, ...theme.activityItem}}>
+                        <span style={{...styles.performanceTopic, ...theme.text}}>
+                          {perf.topic}
+                        </span>
+                        <span style={{
+                          ...styles.performanceScore,
+                          color: perf.score >= 80 ? '#10B981' : perf.score >= 60 ? '#F59E0B' : '#EF4444'
+                        }}>
+                          {perf.score}%
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       <style>{fontImport + animations}</style>
     </div>
   );
@@ -329,7 +446,7 @@ function StudentsTab({ students, theme, onSelectStudent }) {
                       style={{...styles.actionBtn, ...theme.actionBtn}}
                       onClick={() => onSelectStudent(student)}
                     >
-                      View
+                      👁️ View
                     </button>
                   </td>
                 </tr>
@@ -1136,6 +1253,132 @@ const styles = {
     fontSize: '15px',
     fontWeight: '600',
     transition: 'all 0.2s ease'
+  },
+  
+  // Modal Styles
+  modalOverlay: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    background: 'rgba(0, 0, 0, 0.7)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1000,
+    padding: '20px'
+  },
+  modalContent: {
+    width: '100%',
+    maxWidth: '700px',
+    maxHeight: '90vh',
+    overflow: 'auto',
+    borderRadius: '16px',
+    position: 'relative',
+    animation: 'fadeIn 0.3s ease'
+  },
+  modalClose: {
+    position: 'absolute',
+    top: '20px',
+    right: '20px',
+    background: 'none',
+    border: 'none',
+    fontSize: '24px',
+    cursor: 'pointer',
+    color: '#64748B',
+    zIndex: 1
+  },
+  modalHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '16px',
+    marginBottom: '32px'
+  },
+  modalAvatar: {
+    width: '60px',
+    height: '60px',
+    borderRadius: '50%',
+    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+    color: 'white',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: '24px',
+    fontWeight: '700'
+  },
+  modalTitle: {
+    fontSize: '24px',
+    fontWeight: '700',
+    margin: '0 0 4px 0'
+  },
+  modalEmail: {
+    fontSize: '14px',
+    margin: 0
+  },
+  modalBody: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '24px'
+  },
+  modalSection: {
+    borderTop: '1px solid rgba(0, 0, 0, 0.06)',
+    paddingTop: '24px'
+  },
+  modalSectionTitle: {
+    fontSize: '16px',
+    fontWeight: '600',
+    marginBottom: '16px'
+  },
+  modalGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(2, 1fr)',
+    gap: '16px'
+  },
+  modalStat: {
+    padding: '16px',
+    borderRadius: '10px'
+  },
+  modalStatLabel: {
+    fontSize: '12px',
+    marginBottom: '8px',
+    textTransform: 'uppercase',
+    letterSpacing: '0.5px'
+  },
+  modalStatValue: {
+    fontSize: '20px',
+    fontWeight: '700'
+  },
+  topicTags: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: '8px'
+  },
+  topicTag: {
+    padding: '8px 12px',
+    borderRadius: '6px',
+    fontSize: '13px',
+    fontWeight: '500'
+  },
+  performanceList: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '8px'
+  },
+  performanceItem: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: '12px',
+    borderRadius: '8px'
+  },
+  performanceTopic: {
+    fontSize: '14px',
+    fontWeight: '500'
+  },
+  performanceScore: {
+    fontSize: '16px',
+    fontWeight: '700'
   }
 };
 
