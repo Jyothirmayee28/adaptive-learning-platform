@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Line } from 'react-chartjs-2';
 
-const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+const API = 'https://adaptive-learning-platform-luzq.onrender.com';
 
 function StudentProfileModal({ student, onClose, onOverride }) {
   const [progress, setProgress] = useState(null);

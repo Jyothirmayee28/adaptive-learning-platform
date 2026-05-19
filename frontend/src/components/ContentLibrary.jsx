@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { BookOpen, Search, Filter, ChevronRight, Clock, BarChart } from 'lucide-react';
 
-const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+const API = 'https://adaptive-learning-platform-luzq.onrender.com';
 
 function ContentLibrary({ onClose }) {
   const [allTopics, setAllTopics] = useState([]);

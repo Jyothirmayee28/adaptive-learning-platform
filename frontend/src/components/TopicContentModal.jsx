@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { X, BookOpen, Video, Code, FileText, CheckCircle, RefreshCw } from 'lucide-react';
 
-const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+const API = 'https://adaptive-learning-platform-luzq.onrender.com';
 
 function TopicContentModal({ topic, onClose }) {
   const [activeTab, setActiveTab] = useState('overview');

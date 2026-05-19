@@ -13,7 +13,7 @@ import CurriculumView from './CurriculumView';
 import QuizHistoryModal from './QuizHistoryModal';
 import ContentLibrary from './ContentLibrary';
 
-const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+const API = 'https://adaptive-learning-platform-luzq.onrender.com';
 
 function StudentDashboard({ user, onLogout }) {
   const [activeView, setActiveView] = useState('roadmap');

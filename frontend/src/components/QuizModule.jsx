@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
-const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+const API = 'https://adaptive-learning-platform-luzq.onrender.com';
 
 function QuizModule({ topic, studentId, onSubmit }) {
   console.log('QuizModule props:', { topic, studentId });

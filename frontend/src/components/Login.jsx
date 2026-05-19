@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import { Eye, EyeOff, Mail, Lock, User, AlertCircle } from 'lucide-react';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+const API_URL = 'https://adaptive-learning-platform-luzq.onrender.com';
 
 function Login({ onLogin }) {
   const [isRegister, setIsRegister] = useState(false);
