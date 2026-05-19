@@ -68,6 +68,10 @@ function Login({ onLogin }) {
         // New format: { success: true, user: {...}, token: "..." }
         // Old format: { id, name, email, role, ... } (direct user object)
         
+        // Handle two response formats:
+        // New format: { success: true, user: {...}, token: "..." }
+        // Old format: { id, name, email, role, ... } (direct user object)
+        
         let user, token;
         
         if (loginRes.data.success) {
@@ -81,7 +85,9 @@ function Login({ onLogin }) {
             name: loginRes.data.name,
             email: loginRes.data.email,
             role: loginRes.data.role,
-            student_id: loginRes.data.student_id
+            student_id: loginRes.data.student_id || loginRes.data.id,
+            current_topic: loginRes.data.current_topic,
+            difficulty_level: loginRes.data.difficulty_level
           };
           token = 'legacy-token-' + Date.now();
         } else {
