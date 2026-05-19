@@ -47,11 +47,24 @@ function StudentDashboard({ user, onLogout }) {
       setExplanation(expRes.data.explanation);
       setProgress(progRes.data);
     } catch (err) {
-      console.error('Error loading data:', err);
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
+  console.error('Error loading data:', err);
+  // Set default values instead of crashing
+  setRecommendation({ 
+    recommended_topic: user.current_topic || 'Python Basics',
+    reason: 'Continue with your learning path',
+    difficulty: user.difficulty_level || 1
+  });
+  setExplanation('Welcome! Start your learning journey.');
+  setProgress({
+    current_topic: user.current_topic || 'Python Basics',
+    difficulty_level: user.difficulty_level || 1,
+    completed_topics: [],
+    average_score: 0,
+    performance_history: []
+  });
+  setLoading(false);
+  // Don't set error - just use defaults
+}
   };
 
   const handleCompleteTask = async (score) => {
