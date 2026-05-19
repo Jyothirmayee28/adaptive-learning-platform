@@ -14,7 +14,7 @@ import QuizHistoryModal from './QuizHistoryModal';
 import Leaderboard from './Leaderboard';
 import ContentLibrary from './ContentLibrary';
 
-const API = 'http://127.0.0.1:8000';
+const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
 
 function StudentDashboard({ user, onLogout }) {
   const [activeView, setActiveView] = useState('roadmap');
