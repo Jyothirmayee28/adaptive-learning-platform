@@ -337,8 +337,6 @@ function LearningRoadmap({ studentId, onExplore }) {
             >
               🚀 Explore & Learn
             </button>
-  onClick={() => setShowContentLibrary(true)}
-  style={styles.navItem}
   
           </div>
         </div>
