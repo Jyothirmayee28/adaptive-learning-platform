@@ -11,7 +11,6 @@ import GamificationSystem from './GamificationSystem';
 import AIStudyBuddy from './AIStudyBuddy';
 import CurriculumView from './CurriculumView';
 import QuizHistoryModal from './QuizHistoryModal';
-import Leaderboard from './Leaderboard';
 import ContentLibrary from './ContentLibrary';
 
 const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
@@ -178,13 +177,6 @@ function StudentDashboard({ user, onLogout }) {
             </div>
           )}
 
-          {activeView === 'leaderboard' && (
-            <div>
-              <h1 style={styles.pageTitle}>🏆 Leaderboard</h1>
-              <Leaderboard currentUser={user} />
-            </div>
-          )}
-
           {activeView === 'chat' && (
             <div>
               <h1 style={styles.pageTitle}>💬 AI Study Buddy</h1>
@@ -345,12 +337,9 @@ function LearningRoadmap({ studentId, onExplore }) {
             >
               🚀 Explore & Learn
             </button>
-            <button
   onClick={() => setShowContentLibrary(true)}
   style={styles.navItem}
->
-  📚 Content Library
-</button>
+  
           </div>
         </div>
       )}
