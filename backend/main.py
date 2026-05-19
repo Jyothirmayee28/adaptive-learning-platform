@@ -15,7 +15,9 @@ app = FastAPI(title="LearnAI Platform")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "https://adaptive-learning-platform-r6da.vercel.app", 
+       "https://adaptive-learning-platform-r6da.vercel.app",
+        "https://adaptive-learning-platform-r6da-git-main-jyothirmayee28.vercel.app",
+        "https://adaptive-learning-platform-r6da-jyothirmayee28.vercel.app",
         "http://localhost:3000",
         "http://localhost:3001",
         "http://localhost:3002",
