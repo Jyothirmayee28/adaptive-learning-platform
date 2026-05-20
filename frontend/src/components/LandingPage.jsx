@@ -72,7 +72,7 @@ const LandingPage = () => {
         </h2>
         <p style={{ 
           fontSize: 'clamp(1.1rem, 2vw, 1.5rem)', 
-          margin: '0 0 2.5rem',
+         // margin: '0 0 2.5rem',
           opacity: 0.95,
           maxWidth: '800px',
           margin: '0 auto 2.5rem'
