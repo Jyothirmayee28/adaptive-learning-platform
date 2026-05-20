@@ -16,63 +16,89 @@ import ContentLibrary from './ContentLibrary';
 const API = 'https://adaptive-learning-platform-luzq.onrender.com';
 
 function StudentDashboard({ user, onLogout }) {
+  console.log('=== DASHBOARD COMPONENT CALLED ===');
+  console.log('User:', user);
+  const [loading, setLoading] = useState(false);
+const [error, setError] = useState(null);
+const [progress] = useState({
+  current_topic: user?.current_topic || 'Python Basics',
+  difficulty_level: user?.difficulty_level || 1,
+  completed_topics: [],
+  average_score: 0,
+  performance_history: [],
+  total_topics_completed: 0
+});
+const [recommendation] = useState({
+  next_topic: 'Python Basics',
+  reason: 'Start your learning journey'
+});
+const [explanation] = useState('Welcome to your learning dashboard!');
   const [activeView, setActiveView] = useState('roadmap');
   const [topicStartTime, setTopicStartTime] = useState(Date.now());
   const [showContent, setShowContent] = useState(false);
   const [recommendation, setRecommendation] = useState(null);
   const [explanation, setExplanation] = useState('');
   const [progress, setProgress] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  console.log('Dashboard render - Loading:', loading, 'Progress:', progress, 'Recommendation:', recommendation);
   const [error, setError] = useState(null);
-  const [showQuizHistory, setShowQuizHistory] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [historyTopic, setHistoryTopic] = useState('');
   const [exploreTopicName, setExploreTopicName] = useState('');
   const [showContentLibrary, setShowContentLibrary] = useState(false);
 
-  useEffect(() => {
-    loadData();
-    setTopicStartTime(Date.now());
-  }, []);
+  //useEffect(() => {
+  // loadData();
+  //setTopicStartTime(Date.now());
+ // }, []);
 
-  const loadData = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const [recRes, expRes, progRes] = await Promise.all([
-        axios.get(`${API}/api/learning/recommendation/${user.student_id}`),
-        axios.get(`${API}/api/learning/explanation/${user.student_id}`),
-        axios.get(`${API}/api/learning/progress/${user.student_id}`)
-      ]);
-      setRecommendation(recRes.data.recommendation);
-      setExplanation(expRes.data.explanation);
-      setProgress(progRes.data);
-    } catch (err) {
-  console.error('Error loading data:', err);
-  // Set default values instead of crashing
-  setRecommendation({ 
-    recommended_topic: user.current_topic || 'Python Basics',
-    reason: 'Continue with your learning path',
-    difficulty: user.difficulty_level || 1
-  });
-  setExplanation('Welcome! Start your learning journey.');
-  setProgress({
-    current_topic: user.current_topic || 'Python Basics',
-    difficulty_level: user.difficulty_level || 1,
-    completed_topics: [],
-    average_score: 0,
-    performance_history: []
-  });
-  setLoading(false);
-  // Don't set error - just use defaults
-}
-  };
+  const loadData = async (e) => {
+  setLoading(true);
+  setError(null);
+  try {
+    const studentId = user.student_id || user.id;
+    const [recRes, expRes, progRes] = await Promise.all([
+      axios.get(`${API}/api/learning/recommendation/${studentId}`),
+      axios.get(`${API}/api/learning/explanation/${studentId}`),
+      axios.get(`${API}/api/learning/progress/${studentId}`)
+    ]);
+    
+    setRecommendation(recRes.data);
+    setExplanation(expRes.data.explanation);
+    setProgress({
+      ...progRes.data,
+      total_topics_completed: progRes.data.completed_topics?.length || 0
+    });
+    setLoading(false);
+  } catch (err) {
+    console.error('Error loading data:', err);
+    // Set defaults instead of crashing
+    setRecommendation({ 
+      recommended_topic: user.current_topic || 'Python Basics',
+      next_topic: user.current_topic || 'Python Basics',
+      reason: 'Continue with your learning path',
+      difficulty: user.difficulty_level || 1
+    });
+    setExplanation('Welcome! Start your learning journey.');
+    setProgress({
+      current_topic: user.current_topic || 'Python Basics',
+      difficulty_level: user.difficulty_level || 1,
+      completed_topics: [],
+      average_score: 0,
+      performance_history: [],
+      total_topics_completed: 0,
+      knowledge_state: {}
+    });
+    setLoading(false);
+  }
+};
 
   const handleCompleteTask = async (score) => {
     try {
       const timeSpentMinutes = Math.round((Date.now() - topicStartTime) / 60000);
       
       await axios.post(`${API}/api/learning/submit-assessment`, {
-        student_id: user.student_id,
+        student_id: user.student_id || user.id,
         topic: progress.current_topic,
         score: score,
         time_spent: timeSpentMinutes,
@@ -91,10 +117,13 @@ function StudentDashboard({ user, onLogout }) {
   };
 
   if (loading) {
-    return <LoadingScreen />;
-  }
+  console.log('Still loading...');
+  return <LoadingScreen />;
+}
 
-  if (error || !progress || !recommendation) {
+console.log('Not loading anymore, rendering dashboard');
+
+  if (error) {
     return <ErrorScreen error={error} onRetry={loadData} onLogout={onLogout} />;
   }
 
@@ -117,22 +146,18 @@ function StudentDashboard({ user, onLogout }) {
             />
           )}
           
-         {activeView === 'roadmap' && (
-  <div>
-    <h1 style={styles.pageTitle}>🗺️ Learning Roadmap</h1>
-    {user?.student_id ? (
-      <LearningRoadmap 
-        studentId={user.student_id}
-        onExplore={(topicName) => {
-          setExploreTopicName(topicName);
-          setShowContent(true);
-        }}
-      />
-    ) : (
-      <div style={styles.card}>Loading...</div>
-    )}
-  </div>
-)}
+          {activeView === 'roadmap' && (
+            <div>
+              <h1 style={styles.pageTitle}>🗺️ Learning Roadmap</h1>
+              <LearningRoadmap 
+                studentId={user.student_id || user.id}
+                onExplore={(topicName) => {
+                  setExploreTopicName(topicName);
+                  setShowContent(true);
+                }}
+              />
+            </div>
+          )}
 
           {activeView === 'quiz' && (
             <div>
@@ -144,7 +169,7 @@ function StudentDashboard({ user, onLogout }) {
                 </p>
                 <QuizModule 
                   topic={progress.current_topic}
-                  studentId={user.student_id}
+                  studentId={user.student_id || user.id}
                   onSubmit={handleCompleteTask}
                 />
               </div>
@@ -168,13 +193,13 @@ function StudentDashboard({ user, onLogout }) {
             <div>
               <h1 style={styles.pageTitle}>🏆 Achievements</h1>
               <AchievementBadges 
-                completedTopics={progress.total_topics_completed}
-                averageScore={progress.average_score}
+                completedTopics={progress.total_topics_completed || 0}
+                averageScore={progress.average_score || 0}
               />
               <GamificationSystem 
-                studentId={user.student_id}
-                completedTopics={progress.total_topics_completed}
-                averageScore={progress.average_score}
+                studentId={user.student_id || user.id}
+                completedTopics={progress.total_topics_completed || 0}
+                averageScore={progress.average_score || 0}
               />
             </div>
           )}
@@ -184,8 +209,11 @@ function StudentDashboard({ user, onLogout }) {
               <h1 style={styles.pageTitle}>🔄 Spaced Repetition</h1>
               <SpacedRepetition 
                 knowledgeState={progress.knowledge_state || {}}
-                completedTopics={progress.completed_topics}
-                onReviewTopic={(topic) => alert(`Review: ${topic}`)}
+                completedTopics={progress.completed_topics || []}
+                onReviewTopic={(topic) => {
+                  setExploreTopicName(topic);
+                  setShowContent(true);
+                }}
               />
             </div>
           )}
@@ -203,13 +231,10 @@ function StudentDashboard({ user, onLogout }) {
           {activeView === 'curriculum' && (
             <div>
               <h1 style={styles.pageTitle}>📚 Full Curriculum</h1>
-              {user?.student_id ? (
-                <FullCurriculum studentId={user.student_id} />
-              ) : (
-                <div style={styles.card}>Loading...</div>
-              )}
+              <FullCurriculum studentId={user.student_id || user.id} />
             </div>
           )}
+
           {activeView === 'content-library' && (
             <div>
               <h1 style={styles.pageTitle}>📚 Content Library</h1>
@@ -223,29 +248,12 @@ function StudentDashboard({ user, onLogout }) {
       </div>
 
       {showContent && (
-  <TopicContentModal
-    topic={exploreTopicName || progress.current_topic}
-    onClose={() => setShowContent(false)}
-  />
-)}
-    {showContent && (
         <TopicContentModal
           topic={exploreTopicName || progress.current_topic}
           onClose={() => setShowContent(false)}
         />
       )}
 
-      {/* ⬇️ ADD THIS HERE ⬇️ */}
-      {activeView === 'content-library' && (
-  <div>
-    <h1 style={styles.pageTitle}>📚 Content Library</h1>
-    <p style={styles.pageSubtitle}>
-      Complete Python to ML Course Content
-    </p>
-    <ContentLibrary onClose={() => setActiveView('dashboard')} />  {/* ✅ CORRECT */}
-  </div>
-)}
-      {/* ⬆️ END OF NEW COMPONENT ⬆️ */}
       {showQuizHistory && (
         <QuizHistoryModal
           topic={historyTopic}
@@ -280,6 +288,7 @@ function LearningRoadmap({ studentId, onExplore }) {
       }
     } catch (error) {
       console.error('Error loading learning path:', error);
+      setLearningPath([]);
     } finally {
       setLoading(false);
     }
@@ -296,7 +305,6 @@ function LearningRoadmap({ studentId, onExplore }) {
 
   return (
     <div style={styles.roadmapFlowContainer}>
-      {/* COMPLETED TOPICS SECTION */}
       {completedTopics.length > 0 && (
         <div style={styles.flowSection}>
           <h3 style={styles.flowSectionTitle}>✅ Completed Topics ({completedTopics.length})</h3>
@@ -323,14 +331,12 @@ function LearningRoadmap({ studentId, onExplore }) {
         </div>
       )}
 
-      {/* FLOW CONNECTOR */}
       {completedTopics.length > 0 && currentTopic && (
         <div style={styles.flowConnector}>
           <div style={styles.flowArrow}>↓</div>
         </div>
       )}
 
-      {/* CURRENT TOPIC SECTION */}
       {currentTopic && (
         <div style={styles.flowSection}>
           <h3 style={styles.flowSectionTitle}>📍 Current Topic</h3>
@@ -350,12 +356,10 @@ function LearningRoadmap({ studentId, onExplore }) {
             >
               🚀 Explore & Learn
             </button>
-  
           </div>
         </div>
       )}
 
-      {/* FLOW CONNECTOR */}
       {currentTopic && upcomingTopics.length > 0 && (
         <div style={styles.flowConnector}>
           <div style={styles.flowArrow}>↓</div>
@@ -363,7 +367,6 @@ function LearningRoadmap({ studentId, onExplore }) {
         </div>
       )}
 
-      {/* UPCOMING TOPICS SECTION */}
       {upcomingTopics.length > 0 && (
         <div style={styles.flowSection}>
           <h3 style={styles.flowSectionTitle}>🎯 Up Next (AI Recommended)</h3>
@@ -387,7 +390,6 @@ function LearningRoadmap({ studentId, onExplore }) {
         </div>
       )}
 
-      {/* LOCKED TOPICS */}
       {lockedTopics.length > 0 && (
         <div style={styles.lockedSection}>
           <div style={styles.lockedIcon}>🔒</div>
@@ -409,8 +411,8 @@ function DashboardView({ progress, recommendation, explanation }) {
       <h1 style={styles.pageTitle}>🏠 Dashboard</h1>
       
       <div style={styles.statsGrid}>
-        <StatCard icon="🎯" label="Completed Topics" value={progress.total_topics_completed} />
-        <StatCard icon="⭐" label="Average Score" value={`${progress.average_score}%`} />
+        <StatCard icon="🎯" label="Completed Topics" value={progress.total_topics_completed || 0} />
+        <StatCard icon="⭐" label="Average Score" value={`${progress.average_score || 0}%`} />
         <StatCard icon="📚" label="Current Topic" value={progress.current_topic} />
       </div>
 
@@ -421,7 +423,7 @@ function DashboardView({ progress, recommendation, explanation }) {
 
       <div style={styles.infoCard}>
         <h3 style={styles.infoTitle}>🎯 Up Next</h3>
-        <p style={styles.infoText}><strong>{recommendation.next_topic}</strong></p>
+        <p style={styles.infoText}><strong>{recommendation.next_topic || recommendation.recommended_topic}</strong></p>
         <p style={styles.infoText}>{recommendation.reason}</p>
       </div>
     </div>
@@ -601,7 +603,7 @@ function ErrorScreen({ error, onRetry, onLogout }) {
   return (
     <div style={styles.errorScreen}>
       <h2 style={styles.errorTitle}>Something went wrong</h2>
-      <p style={styles.errorText}>{error}</p>
+      <p style={styles.errorText}>{error || 'Please try again'}</p>
       <button onClick={onRetry} style={styles.button}>Retry</button>
       <button onClick={onLogout} style={{...styles.button, background: '#EF4444'}}>Logout</button>
     </div>
@@ -609,6 +611,116 @@ function ErrorScreen({ error, onRetry, onLogout }) {
 }
 
 const styles = {
+  layout: {
+    display: 'flex',
+    minHeight: '100vh',
+    background: 'linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%)',
+    fontFamily: '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+  },
+  mainContent: {
+    marginLeft: '280px',
+    flex: 1,
+    padding: '40px',
+    overflowY: 'auto',
+    background: 'linear-gradient(135deg, #faf5ff 0%, #f3f4ff 50%, #faf5ff 100%)',
+  },
+  contentWrapper: {
+    maxWidth: '1200px',
+    margin: '0 auto',
+  },
+  pageTitle: {
+    fontSize: '32px',
+    fontWeight: '700',
+    color: '#1E1B4B',
+    marginBottom: '32px',
+    letterSpacing: '-0.5px',
+    textShadow: '0 2px 4px rgba(102, 126, 234, 0.1)',
+  },
+  pageSubtitle: {
+    fontSize: '16px',
+    color: '#64748B',
+    marginBottom: '24px',
+  },
+  statsGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+    gap: '24px',
+    marginBottom: '32px',
+  },
+  statCard: {
+    background: 'rgba(255, 255, 255, 0.9)',
+    backdropFilter: 'blur(10px)',
+    padding: '32px',
+    borderRadius: '20px',
+    textAlign: 'center',
+    border: '1px solid rgba(102, 126, 234, 0.1)',
+    boxShadow: '0 8px 32px rgba(102, 126, 234, 0.08)',
+    transition: 'all 0.3s ease',
+  },
+  statIcon: {
+    fontSize: '48px',
+    marginBottom: '16px',
+    display: 'block',
+    filter: 'drop-shadow(0 2px 4px rgba(102, 126, 234, 0.2))',
+  },
+  statValue: {
+    fontSize: '36px',
+    fontWeight: '700',
+    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+    WebkitBackgroundClip: 'text',
+    WebkitTextFillColor: 'transparent',
+    marginBottom: '8px',
+  },
+  statLabel: {
+    fontSize: '14px',
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  infoCard: {
+    background: 'rgba(255, 255, 255, 0.9)',
+    backdropFilter: 'blur(10px)',
+    padding: '32px',
+    borderRadius: '20px',
+    marginBottom: '24px',
+    border: '1px solid rgba(102, 126, 234, 0.1)',
+    boxShadow: '0 8px 32px rgba(102, 126, 234, 0.08)',
+  },
+  infoTitle: {
+    fontSize: '20px',
+    fontWeight: '600',
+    marginBottom: '16px',
+    color: '#1E1B4B',
+  },
+  infoText: {
+    fontSize: '15px',
+    lineHeight: '1.7',
+    color: '#475569',
+    marginBottom: '8px',
+  },
+  quizCard: {
+    background: 'rgba(255, 255, 255, 0.9)',
+    backdropFilter: 'blur(10px)',
+    padding: '40px',
+    borderRadius: '20px',
+    border: '1px solid rgba(102, 126, 234, 0.1)',
+    boxShadow: '0 8px 32px rgba(102, 126, 234, 0.08)',
+  },
+  currentTopic: {
+    fontSize: '28px',
+    fontWeight: '700',
+    color: '#1E1B4B',
+    marginBottom: '12px',
+  },
+  topicDesc: {
+    fontSize: '16px',
+    color: '#64748B',
+    marginBottom: '32px',
+  },
+  chartsGrid: {
+    display: 'grid',
+    gap: '24px',
+    marginTop: '24px',
+  },
   card: {
     background: 'rgba(255, 255, 255, 0.9)',
     backdropFilter: 'blur(10px)',
@@ -623,52 +735,6 @@ const styles = {
     fontWeight: '700',
     color: '#1E1B4B',
     marginBottom: '24px',
-  },
-  roadmapContainer: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '16px',
-  },
-  roadmapItem: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '16px',
-    padding: '20px',
-    background: '#F8FAFC',
-    borderRadius: '16px',
-    border: '1px solid #E2E8F0',
-    transition: 'all 0.3s ease',
-  },
-  roadmapIcon: {
-    width: '48px',
-    height: '48px',
-    borderRadius: '50%',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontSize: '20px',
-    fontWeight: '700',
-    color: 'white',
-    flexShrink: 0,
-  },
-  roadmapContent: {
-    flex: 1,
-  },
-  roadmapTitle: {
-    fontSize: '16px',
-    fontWeight: '600',
-    color: '#1E1B4B',
-    marginBottom: '4px',
-  },
-  roadmapSubtitle: {
-    fontSize: '14px',
-    color: '#64748B',
-  },
-  roadmapBadge: {
-    padding: '8px 16px',
-    borderRadius: '12px',
-    fontSize: '13px',
-    fontWeight: '600',
   },
   curriculumSubtitle: {
     fontSize: '14px',
@@ -741,311 +807,181 @@ const styles = {
     fontSize: '12px',
     color: '#94A3B8',
   },
-  layout: {
+  roadmapFlowContainer: {
     display: 'flex',
-    minHeight: '100vh',
-    background: 'linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%)',
-    fontFamily: '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+    flexDirection: 'column',
+    gap: '32px',
   },
-  mainContent: {
-    marginLeft: '280px',
-    flex: 1,
-    padding: '40px',
-    overflowY: 'auto',
-    background: 'linear-gradient(135deg, #faf5ff 0%, #f3f4ff 50%, #faf5ff 100%)',
-  },
-  contentWrapper: {
-    maxWidth: '1200px',
-    margin: '0 auto',
-  },
-  pageTitle: {
-    fontSize: '32px',
-    fontWeight: '700',
-    color: '#1E1B4B',
-    marginBottom: '32px',
-    letterSpacing: '-0.5px',
-    textShadow: '0 2px 4px rgba(102, 126, 234, 0.1)',
-  },
-  statsGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
-    gap: '24px',
-    marginBottom: '32px',
-  },
-  statCard: {
-    background: 'rgba(255, 255, 255, 0.9)',
-    backdropFilter: 'blur(10px)',
+  flowSection: {
+    background: 'white',
     padding: '32px',
     borderRadius: '20px',
-    textAlign: 'center',
-    border: '1px solid rgba(102, 126, 234, 0.1)',
-    boxShadow: '0 8px 32px rgba(102, 126, 234, 0.08)',
-    transition: 'all 0.3s ease',
+    border: '1px solid #E2E8F0',
+    boxShadow: '0 4px 16px rgba(0,0,0,0.06)',
   },
-  statIcon: {
-    fontSize: '48px',
-    marginBottom: '16px',
-    display: 'block',
-    filter: 'drop-shadow(0 2px 4px rgba(102, 126, 234, 0.2))',
-  },
-  statValue: {
-    fontSize: '36px',
+  flowSectionTitle: {
+    fontSize: '18px',
     fontWeight: '700',
-    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-    WebkitBackgroundClip: 'text',
-    WebkitTextFillColor: 'transparent',
+    color: '#1E1B4B',
+    marginBottom: '24px',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+  },
+  flowItems: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+    gap: '20px',
+  },
+  flowCard: {
+    background: '#F8FAFC',
+    padding: '20px',
+    borderRadius: '16px',
+    border: '2px solid #E2E8F0',
+    transition: 'all 0.3s',
+  },
+  flowCardHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '12px',
+  },
+  flowIcon: {
+    width: '40px',
+    height: '40px',
+    borderRadius: '50%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: '18px',
+    fontWeight: '700',
+    color: 'white',
+  },
+  flowStatus: {
+    fontSize: '11px',
+    fontWeight: '700',
+    padding: '4px 10px',
+    borderRadius: '8px',
+    background: '#D1FAE5',
+    color: '#065F46',
+    textTransform: 'uppercase',
+    letterSpacing: '0.5px',
+  },
+  flowCardTitle: {
+    fontSize: '16px',
+    fontWeight: '700',
+    color: '#1E1B4B',
     marginBottom: '8px',
   },
-  statLabel: {
+  flowCardMeta: {
+    fontSize: '13px',
+    color: '#64748B',
+    marginBottom: '8px',
+  },
+  flowCardCategory: {
+    fontSize: '12px',
+    color: '#667eea',
+    fontWeight: '600',
+  },
+  flowReviewButton: {
+    width: '100%',
+    padding: '12px',
+    marginTop: '12px',
+    background: '#F1F5F9',
+    border: '1px solid #E2E8F0',
+    borderRadius: '10px',
     fontSize: '14px',
+    fontWeight: '600',
+    color: '#475569',
+    cursor: 'pointer',
+    transition: 'all 0.3s',
+  },
+  flowConnector: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: '8px',
+    padding: '16px 0',
+  },
+  flowArrow: {
+    fontSize: '32px',
+    color: '#667eea',
+    fontWeight: '700',
+  },
+  flowConnectorText: {
+    fontSize: '13px',
     color: '#64748B',
     fontWeight: '500',
   },
-  infoCard: {
-    background: 'rgba(255, 255, 255, 0.9)',
-    backdropFilter: 'blur(10px)',
-    padding: '32px',
-    borderRadius: '20px',
-    marginBottom: '24px',
-    border: '1px solid rgba(102, 126, 234, 0.1)',
-    boxShadow: '0 8px 32px rgba(102, 126, 234, 0.08)',
-  },
-  infoTitle: {
-    fontSize: '20px',
-    fontWeight: '600',
-    marginBottom: '16px',
-    color: '#1E1B4B',
-  },
-  
-  roadmapFlowContainer: {
-  display: 'flex',
-  flexDirection: 'column',
-  gap: '32px',
-},
-flowSection: {
-  background: 'white',
-  padding: '32px',
-  borderRadius: '20px',
-  border: '1px solid #E2E8F0',
-  boxShadow: '0 4px 16px rgba(0,0,0,0.06)',
-},
-flowSectionTitle: {
-  fontSize: '18px',
-  fontWeight: '700',
-  color: '#1E1B4B',
-  marginBottom: '24px',
-  display: 'flex',
-  alignItems: 'center',
-  gap: '8px',
-},
-flowItems: {
-  display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-  gap: '20px',
-},
-flowCard: {
-  background: '#F8FAFC',
-  padding: '20px',
-  borderRadius: '16px',
-  border: '2px solid #E2E8F0',
-  transition: 'all 0.3s',
-},
-flowCardHeader: {
-  display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-  marginBottom: '12px',
-},
-flowIcon: {
-  width: '40px',
-  height: '40px',
-  borderRadius: '50%',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  fontSize: '18px',
-  fontWeight: '700',
-  color: 'white',
-},
-flowStatus: {
-  fontSize: '11px',
-  fontWeight: '700',
-  padding: '4px 10px',
-  borderRadius: '8px',
-  background: '#D1FAE5',
-  color: '#065F46',
-  textTransform: 'uppercase',
-  letterSpacing: '0.5px',
-},
-flowCardTitle: {
-  fontSize: '16px',
-  fontWeight: '700',
-  color: '#1E1B4B',
-  marginBottom: '8px',
-},
-flowCardMeta: {
-  fontSize: '13px',
-  color: '#64748B',
-  marginBottom: '8px',
-},
-flowCardCategory: {
-  fontSize: '12px',
-  color: '#667eea',
-  fontWeight: '600',
-},
-flowReviewButton: {
-  width: '100%',
-  padding: '12px',
-  marginTop: '12px',
-  background: '#F1F5F9',
-  border: '1px solid #E2E8F0',
-  borderRadius: '10px',
-  fontSize: '14px',
-  fontWeight: '600',
-  color: '#475569',
-  cursor: 'pointer',
-  transition: 'all 0.3s',
-},
-flowConnector: {
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'center',
-  gap: '8px',
-  padding: '16px 0',
-},
-flowArrow: {
-  fontSize: '32px',
-  color: '#667eea',
-  fontWeight: '700',
-},
-flowConnectorText: {
-  fontSize: '13px',
-  color: '#64748B',
-  fontWeight: '500',
-},
-currentTopicCard: {
-  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-  padding: '40px',
-  borderRadius: '20px',
-  textAlign: 'center',
-  color: 'white',
-},
-currentTopicBadge: {
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  gap: '12px',
-  marginBottom: '20px',
-},
-currentTopicStatus: {
-  fontSize: '12px',
-  fontWeight: '700',
-  padding: '6px 12px',
-  borderRadius: '8px',
-  background: 'rgba(255,255,255,0.2)',
-  letterSpacing: '1px',
-},
-currentTopicTitle: {
-  fontSize: '32px',
-  fontWeight: '700',
-  marginBottom: '12px',
-},
-currentTopicMeta: {
-  fontSize: '15px',
-  opacity: 0.9,
-  marginBottom: '8px',
-},
-currentTopicCategory: {
-  fontSize: '14px',
-  opacity: 0.8,
-  marginBottom: '24px',
-},
-exploreCurrentButton: {
-  padding: '16px 40px',
-  background: 'white',
-  color: '#667eea',
-  border: 'none',
-  borderRadius: '12px',
-  fontSize: '16px',
-  fontWeight: '700',
-  cursor: 'pointer',
-  boxShadow: '0 8px 24px rgba(0,0,0,0.2)',
-  transition: 'all 0.3s',
-},
-lockedSection: {
-  textAlign: 'center',
-  padding: '40px',
-  background: '#F8FAFC',
-  borderRadius: '16px',
-  border: '2px dashed #CBD5E1',
-},
-lockedIcon: {
-  fontSize: '48px',
-  marginBottom: '12px',
-},
-lockedText: {
-  fontSize: '16px',
-  fontWeight: '600',
-  color: '#475569',
-  marginBottom: '4px',
-},
-lockedHint: {
-  fontSize: '14px',
-  color: '#94A3B8',
-},
-  infoText: {
-    fontSize: '15px',
-    lineHeight: '1.7',
-    color: '#475569',
-    marginBottom: '8px',
-  },
-  quizCard: {
-    background: 'rgba(255, 255, 255, 0.9)',
-    backdropFilter: 'blur(10px)',
+  currentTopicCard: {
+    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
     padding: '40px',
     borderRadius: '20px',
-    border: '1px solid rgba(102, 126, 234, 0.1)',
-    boxShadow: '0 8px 32px rgba(102, 126, 234, 0.08)',
+    textAlign: 'center',
+    color: 'white',
   },
-  currentTopic: {
-    fontSize: '28px',
+  currentTopicBadge: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '12px',
+    marginBottom: '20px',
+  },
+  currentTopicStatus: {
+    fontSize: '12px',
     fontWeight: '700',
-    color: '#1E1B4B',
+    padding: '6px 12px',
+    borderRadius: '8px',
+    background: 'rgba(255,255,255,0.2)',
+    letterSpacing: '1px',
+  },
+  currentTopicTitle: {
+    fontSize: '32px',
+    fontWeight: '700',
     marginBottom: '12px',
   },
-  topicDesc: {
-    fontSize: '16px',
-    color: '#64748B',
-    marginBottom: '32px',
+  currentTopicMeta: {
+    fontSize: '15px',
+    opacity: 0.9,
+    marginBottom: '8px',
   },
-  exploreButton: {
-  padding: '10px 20px',
-  background: '#F1F5F9',
-  color: '#475569',
-  border: '1px solid #E2E8F0',
-  borderRadius: '10px',
-  fontSize: '13px',
-  fontWeight: '600',
-  cursor: 'pointer',
-  transition: 'all 0.3s',
-},
-
-exploreButtonCurrent: {
-  padding: '10px 20px',
-  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-  color: 'white',
-  border: 'none',
-  borderRadius: '10px',
-  fontSize: '13px',
-  fontWeight: '600',
-  cursor: 'pointer',
-  transition: 'all 0.3s',
-  boxShadow: '0 4px 12px rgba(102, 126, 234, 0.3)',
-},
-  chartsGrid: {
-    display: 'grid',
-    gap: '24px',
-    marginTop: '24px',
+  currentTopicCategory: {
+    fontSize: '14px',
+    opacity: 0.8,
+    marginBottom: '24px',
+  },
+  exploreCurrentButton: {
+    padding: '16px 40px',
+    background: 'white',
+    color: '#667eea',
+    border: 'none',
+    borderRadius: '12px',
+    fontSize: '16px',
+    fontWeight: '700',
+    cursor: 'pointer',
+    boxShadow: '0 8px 24px rgba(0,0,0,0.2)',
+    transition: 'all 0.3s',
+  },
+  lockedSection: {
+    textAlign: 'center',
+    padding: '40px',
+    background: '#F8FAFC',
+    borderRadius: '16px',
+    border: '2px dashed #CBD5E1',
+  },
+  lockedIcon: {
+    fontSize: '48px',
+    marginBottom: '12px',
+  },
+  lockedText: {
+    fontSize: '16px',
+    fontWeight: '600',
+    color: '#475569',
+    marginBottom: '4px',
+  },
+  lockedHint: {
+    fontSize: '14px',
+    color: '#94A3B8',
   },
   loadingScreen: {
     display: 'flex',
@@ -1104,27 +1040,6 @@ exploreButtonCurrent: {
     transition: 'all 0.3s ease',
   },
 };
-{/* Temporary test button - add this ANYWHERE in your JSX */}
-<button 
-  onClick={() => {
-    console.log('Button clicked!');
-    setShowContentLibrary(true);
-  }}
-  style={{
-    position: 'fixed',
-    bottom: '20px',
-    right: '20px',
-    padding: '20px',
-    background: 'red',
-    color: 'white',
-    fontSize: '20px',
-    zIndex: 9999,
-    cursor: 'pointer',
-  }}
->
-  TEST LIBRARY
-</button>
-
 
 const quizStyleSheet = document.createElement('style');
 quizStyleSheet.textContent = `
